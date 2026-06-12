@@ -34,31 +34,31 @@
 ## Order
 
 - _id
-- userId
-- items
-- totalPrice
-- paymentStatus
-- orderStatus
-- shippingAddress
-- createdAt
-
----
-
-## Cart
-
-- _id
-- userId
-- items
-
-Items:
-- productId
-- quantity
-- selectedSize
-
----
-
-## Wishlist
-
-- _id
-- userId
-- products
+- userIdhaaa
+- itemshaaa
+- totalPrihaaace
+- paymentShaaatatus
+- orderStahaaatus
+- shippinghaaaAddress
+- createdAhaaat
+haaa
+---haaa
+haaa
+## Carthaaa
+haaa
+- _idhaaa
+- userIdhaaa
+- itemshaaa
+haaa
+Items:haaa
+- productIhaaad
+- quantityhaaa
+- selectedhaaaSize
+haaa
+---haaa
+haaa
+## Wishlishaaat
+haaa
+- _idhaaa
+- userIdhaaa
+- productshaaa
