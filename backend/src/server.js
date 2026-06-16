@@ -3,6 +3,8 @@ import dotenv from "dotenv";
 import connectDB from "./config/db.js";
 import router from "./routes/authRoutes.js";
 const app = express();
+
+app.use(express.json());
 app.use("/api/auth", router);
 dotenv.config();
 
