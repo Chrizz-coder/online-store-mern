@@ -9,11 +9,19 @@ export const protect = async (req, res, next) => {
   ) {
     try {
       token = req.headers.authorization.split(" ")[1];
+      if (!process.env.JWT_SECRET) {
+        throw new Error("JWT_SECRET not configured");
+      }
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      req.user = await User.findById(decoded.id).select("-password");
+      const user = await User.findById(decoded.id).select("-password");
+      
+      if(!user){
+        return res.status(401).json({message:"User no longer exists"});
+      }
+      req.user = user;
       return next();
     } catch (error) {
-      console.log("Token validation error ", error);
+      console.error("Token validation error ", error);
       return res
         .status(401)
         .json({ message: "Not authorized ,token validation failed" });
