@@ -1,15 +1,14 @@
 import express from "express";
-import {  registerUser,loginUser} from "../controllers/authController.js";
+import { registerUser, loginUser } from "../controllers/authController.js";
+import { protect } from "../middleware.js/authMiddleware.js";
 const router = express.Router();
 
 router.post("/register", registerUser);
 
-router.post("/login",loginUser);
+router.post("/login", loginUser);
 
-router.get("/profile",(req,res)=>{
-  console.log("Profile is here");
-  res.status(200).json({message:"Profile"})
-
-})
+router.get("/profile", protect, (req, res) => {
+  res.status(200).json(req.user);
+});
 
 export default router;
