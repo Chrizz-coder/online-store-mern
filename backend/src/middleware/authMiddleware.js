@@ -14,9 +14,9 @@ export const protect = async (req, res, next) => {
       }
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const user = await User.findById(decoded.id).select("-password");
-      
-      if(!user){
-        return res.status(401).json({message:"User no longer exists"});
+
+      if (!user) {
+        return res.status(401).json({ message: "User no longer exists" });
       }
       req.user = user;
       return next();
@@ -33,10 +33,10 @@ export const protect = async (req, res, next) => {
   }
 };
 
-export const adminOnly = async(req,res,next) =>{
-  if( req.user && req.user.role === "admin"){
+export const adminOnly = async (req, res, next) => {
+  if (req.user && req.user.role === "admin") {
     next();
-  }else{
-    return res.status(403).json({ message: "Access denied adminOnly"});
+  } else {
+    return res.status(403).json({ message: "Access denied adminOnly" });
   }
 };
