@@ -120,3 +120,140 @@ Completed commits:
 * Attach decoded user to `req.user`
 * Implement protected `/profile` route
 * Begin Product CRUD APIs
+
+## 2026-06-17
+
+### Completed
+
+* Reviewed and refined User schema design.
+* Discussed authentication vs authorization architecture.
+* Implemented JWT-based registration flow.
+* Implemented JWT-based login flow.
+* Refactored token generation into reusable utility:
+
+  * `generateToken.js`
+* Learned and applied named exports in controllers.
+* Built authentication middleware:
+
+  * Token extraction
+  * JWT verification
+  * User lookup
+  * Password exclusion using `.select("-password")`
+* Built authorization middleware:
+
+  * `adminOnly`
+* Protected profile route using middleware chain:
+
+  * `protect`
+  * controller/route handler
+* Tested authentication flow through Postman.
+* Created Product Controller:
+
+  * `getAllProducts()`
+  * `getProductById()`
+* Created Product Routes.
+* Learned route parameters:
+
+  * `/products/:id`
+* Identified and fixed Router creation mistake:
+
+  * `express.productRoutes()` → `express.Router()`
+
+### Key Concepts Learned
+
+* Authentication vs Authorization
+* JWT Payload Design
+* Middleware Chaining
+* Request Lifecycle
+* Express Router
+* Route Mounting
+* Named Exports vs Default Exports
+* DRY Principle
+* Mongoose Queries:
+
+  * `find()`
+  * `findById()`
+* Request Headers
+* Authorization Header:
+
+  * `Bearer <token>`
+* Route Parameters (`req.params`)
+* Protected Routes
+
+### Problems Faced
+
+* Understanding when role checks are required.
+* Understanding route mounting.
+* Token scope issues inside controllers.
+* Understanding middleware execution flow.
+* Confusion around named exports and imports.
+* Router initialization mistake.
+
+### Solutions
+
+* Role checks only on admin-protected operations.
+* JWT verification centralized in middleware.
+* Reusable token generation utility created.
+* Authentication and authorization separated into different middleware.
+* Standardized on named exports for controllers.
+* Corrected Express Router setup.
+
+### Git Milestones
+
+Commit completed:
+
+* Implement user registration and login with JWT
+* Implement authentication middleware and protected routes
+* Implement product listing and detail APIs
+
+### Current Backend Status
+
+```text
+✓ MongoDB Connection
+✓ User Model
+✓ Product Model
+✓ Cart Model
+✓ Order Model
+
+✓ Register API
+✓ Login API
+✓ JWT Utility
+✓ Auth Middleware
+✓ Admin Middleware
+✓ Protected Profile Route
+
+✓ Get All Products API
+✓ Get Product By ID API
+
+❌ Create Product API
+❌ Update Product API
+❌ Delete Product API
+
+❌ Cart APIs
+❌ Order APIs
+
+❌ Frontend Integration
+```
+
+### Current Project Completion
+
+```text
+Backend Foundation        ██████████ 100%
+Authentication            ██████████ 100%
+Authorization             ██████████ 100%
+Product APIs              ████░░░░░░ 40%
+Cart APIs                 ░░░░░░░░░░ 0%
+Order APIs                ░░░░░░░░░░ 0%
+Frontend Integration      ░░░░░░░░░░ 0%
+```
+
+### Next Session Goal
+
+* Implement `createProduct()`
+* Protect product creation using:
+
+  * `protect`
+  * `adminOnly`
+* Create product validation flow
+* Test admin product creation in Postman
+* Begin Product CRUD completion
