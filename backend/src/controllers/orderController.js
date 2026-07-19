@@ -214,3 +214,152 @@ export const placeOrder = async (req, res) => {
     });
   }
 };
+
+export const getMyOrders = async (req, res) => {
+  try {
+    const orders = await Order.find({ user: req.user.id }).sort({
+      createdAt: -1,
+    });
+    return res.status(200).json({
+      count: orders.length,
+      orders: orders,
+    });
+  } catch (error) {
+    console.error("Error while fetching orders", error);
+    if (error.name === "CastError" || error.kind === "ObjectId") {
+      return res
+        .status(400)
+        .json({ message: "Malformed user identifier parameters encountered." });
+    }
+
+    return res
+      .status(500)
+      .json({ message: "Server error retrieving your purchase history." });
+  }
+};
+
+export const getOrderById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res
+        .status(400)
+        .json({ message: "Invalid order identifier format provided." });
+    }
+
+    const order = await Order.findById(id);
+
+    if (!order) {
+      return res.status(400).json({ message: "Target order not found" });
+    }
+
+    if (order.user.toString() !== req.user.id) {
+      return res
+        .status(403)
+        .json({ message: "Access denied. You do not own this order record." });
+    }
+
+    return res.status(200).json({ order });
+  } catch (error) {
+    console.error("Fetch Single Order Detail Error:", error);
+    return res
+      .status(500)
+      .json({ message: "Server error retrieving individual order metrics." });
+  }
+};
+
+export const cancelOrder = async (req, res) => {
+  const session = await mongoose.startSession();
+  try {
+    session.startTransaction();
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res
+        .status(400)
+        .json({ message: "Invalid order identifier format provided." });
+    }
+
+    const order = await Order.findById(id).session(session);
+    if (!order) {
+      await session.abortTransaction();
+      session.endSession();
+      return res
+        .status(404)
+        .json({ message: "Target order invoice records not found." });
+    }
+
+    if (order.user.toString() !== req.user.id) {
+      await session.abortTransaction;
+      session.endSession();
+      return res.status(400).json({
+        message: "You are not authorized to access this order.",
+      });
+    }
+
+    if (order.orderStatus === "cancelled") {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        message: "Operation rejected. This order is already cancelled.",
+      });
+    }
+
+    const allowedStatuses = ["placed", "processing"];
+    if (!allowedStatuses.includes(order.orderStatus)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        message: `Cannot cancel order. Orders that are already ${order.orderStatus} cannot be voided.`,
+      });
+    }
+
+    for (let item of order.items) {
+      const color = item.selectedVariant?.color;
+      const size = item.selectedVariant?.size;
+      if (color || size) {
+        await Product.updateOne(
+          {
+            _id: item.product,
+            "variants.size": size,
+            "variants.color": color,
+          },
+          {
+            $inc: { "variants.$.stock": item.quantity },
+          },
+          { session },
+        );
+      } else {
+        await Product.updateOne(
+          {
+            _id: item.product,
+          },
+          {
+            $inc: { globalStock: item.quantity },
+          },
+          { session },
+        );
+      }
+    }
+
+    order.orderStatus = "cancelled";
+    await order.save({ session });
+    await session.commitTransaction();
+    session.endSession();
+    return res.status(200).json({
+      message:
+        "Order cancelled successfully. Inventory stock has been restored.",
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    console.error("Order Cancellation Pipeline Failure:", error);
+    return res.status(500).json({
+      message:
+        "Server error executing transaction rollback cancellation loops.",
+    });
+  }
+};
