@@ -4,7 +4,7 @@ import {
   proceedToCheckout,
   placeOrder,
   getMyOrders,
-  getOrderById
+  getOrderById,
 } from "../controllers/orderController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -14,6 +14,7 @@ router.use(protect);
 
 router.post("/checkout-summary", proceedToCheckout);
 router.post("/", placeOrder);
-router.get("/myOrders",getMyOrders)
-router.get('/:id', getOrderById);  4 
-export const router;
+router.get("/myOrders", getMyOrders);
+router.get("/:id", getOrderById);
+
+export default router;

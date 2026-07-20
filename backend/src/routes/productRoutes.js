@@ -9,13 +9,13 @@ import {
 import { adminOnly, protect } from "../middleware/authMiddleware.js";
 import Product from "../models/productModel.js";
 
-const productRoutes = express.Router();
+const router = express.Router();
 
-productRoutes.get("/", getAllProducts);
-productRoutes.get("/:id", getProductById);
+router.get("/", getAllProducts);
+router.get("/:id", getProductById);
 
 
-productRoutes.post("/",protect,adminOnly, createProduct);
-productRoutes.put("/:id",protect,adminOnly,updateProduct);
-productRoutes.delete("/:id",protect,adminOnly,deleteProduct);
-export default productRoutes;
+router.post("/",protect,adminOnly, createProduct);
+router.put("/:id",protect,adminOnly,updateProduct);
+router.delete("/:id",protect,adminOnly,deleteProduct);
+export default router;

@@ -15,3 +15,5 @@ router.get("/", viewCart);
 router.post("/", addToCart);
 router.put("/:productId", updateCartQuantity);
 router.delete("/:productId", deleteCartItem);
+
+export default router;
