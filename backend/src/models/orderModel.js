@@ -22,7 +22,7 @@ const orderItemSchema = new mongoose.Schema(
     purchasePrice: {
       type: Number,
       required: true,
-      min:0
+      min: 0,
     },
     selectedVariant: {
       color: String,
@@ -41,34 +41,18 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
     items: {
-      type:[orderItemSchema],
-      required:true
+      type: [orderItemSchema],
+      required: true,
     },
     shippingAddress: {
-      fullName: {
-        type: String,
-        required: true,
-      },
-      phone: {
-        type: String,
-        required: true,
-      },
-      address: {
-        type: String,
-        required: true,
-      },
-      city: {
-        type: String,
-        required: true,
-      },
-      state: {
-        type: String,
-        required: true,
-      },
-      pincode: {
-        type: String,
-        required: true,
-      },
+      fullName: String,
+      phone: String,
+      houseBuilding: String,
+      streetArea: String,
+      landmark: String,
+      city: String,
+      state: String,
+      pincode: String,
     },
     totalAmount: {
       type: Number,
