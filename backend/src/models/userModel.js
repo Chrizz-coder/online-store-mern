@@ -96,26 +96,26 @@ const userSchema = new mongoose.Schema(
   },
 );
 
-userSchema.pre("save", function (next) {
-  if (this.isModified("addresses")) {
-    const defaultAddresses = this.addresses.filter(addr => addr.isDefault === true);
-    
-    // If more than one address is accidentally flagged true, keep only the latest one
-    if (defaultAddresses.length > 1) {
-      let foundFirstDefault = false;
-      this.addresses.forEach(addr => {
-        if (addr.isDefault) {
-          if (!foundFirstDefault) {
-            foundFirstDefault = true; // Keep the first default card true
-          } else {
-            addr.isDefault = false;  // Demote any extra default flags back to false
-          }
-        }
-      });
-    }
-  }
-  next();
-});
+// userSchema.pre("save", function (next) {
+//   if (this.isModified("addresses")) {
+//     const defaultAddresses = this.addresses.filter(addr => addr.isDefault === true);
+
+//     // If more than one address is accidentally flagged true, keep only the latest one
+//     if (defaultAddresses.length > 1) {
+//       let foundFirstDefault = false;
+//       this.addresses.forEach(addr => {
+//         if (addr.isDefault) {
+//           if (!foundFirstDefault) {
+//             foundFirstDefault = true; // Keep the first default card true
+//           } else {
+//             addr.isDefault = false;  // Demote any extra default flags back to false
+//           }
+//         }
+//       });
+//     }
+//   }
+//   next();
+// });
 
 const User = mongoose.model("User", userSchema);
 

@@ -1,6 +1,7 @@
 import Cart from "../models/cartModel.js";
 import Product from "../models/productModel.js";
 import Order from "../models/orderModel.js";
+import User from "../models/userModel.js";
 import mongoose from "mongoose";
 
 const validateAndCalculateCart = (cart) => {
@@ -95,7 +96,7 @@ export const placeOrder = async (req, res) => {
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
-    const { shippingAddress, paymentMethod } = req.body;
+    const { addressId, paymentMethod } = req.body;
 
     if (!paymentMethod || !["COD", "Razorpay"].includes(paymentMethod)) {
       return res
@@ -103,31 +104,45 @@ export const placeOrder = async (req, res) => {
         .json({ message: "Select a valid payment method[COD or Razorpay]" });
     }
 
-    if (!shippingAddress) {
-      return res.status(400).json({ message: "Shipping address is missing" });
-    }
-    const { fullName, phone, houseBuilding, streetArea, city, state, pincode } =
-      shippingAddress;
-
-    if (
-      !fullName ||
-      !phone ||
-      !houseBuilding ||
-      !streetArea ||
-      !city ||
-      !state ||
-      !pincode
-    ) {
+    if (!addressId) {
+      await session.abortTransaction();
+      session.endSession();
       return res
         .status(400)
-        .json({ message: "Please provide all mandatory shipping details" });
+        .json({ message: "Shipping address selection identifier is missing" });
     }
 
+    if (!mongoose.Types.ObjectId.isValid(addressId)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res
+        .status(400)
+        .json({ message: "Invalid address selection identifier format." });
+    }
+    const user = await User.findById(req.user.id).session(session);
+    if (!user) {
+      await session.abortTransaction();
+      session.endSession();
+      return res
+        .status(404)
+        .json({ message: "User profile context data not found." });
+    }
+
+    const selectedAddress = user.addresses.id(addressId);
+    if (!selectedAddress) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        message: "The chosen address record was not found in your profile.",
+      });
+    }
     const cart = await Cart.findOne({ user: req.user.id })
       .populate("items.product")
       .session(session);
 
     if (!cart || cart.items.length === 0) {
+      await session.abortTransaction();
+      session.endSession();
       return res
         .status(400)
         .json({ message: "Checkout aborted. Your shopping cart is empty" });
@@ -139,12 +154,15 @@ export const placeOrder = async (req, res) => {
       user: req.user.id,
       items: itemsSnapshot,
       shippingAddress: {
-        fullName,
-        phone,
-        address: `${houseBuilding}, ${streetArea}`,
-        city,
-        state,
-        pincode,
+        fullName: selectedAddress.fullName,
+        phone: selectedAddress.phone,
+        houseBuilding: selectedAddress.houseBuilding,
+        streetArea: selectedAddress.streetArea,
+        landmark: selectedAddress.landmark,
+        city: selectedAddress.city,
+        state: selectedAddress.state,
+        country: selectedAddress.country,
+        pincode: selectedAddress.pincode,
       },
       totalAmount: totalAmount,
       paymentMethod,
@@ -152,9 +170,9 @@ export const placeOrder = async (req, res) => {
       orderStatus: "placed",
     });
 
-    const saveOrder = await newOrder.save({ session });
+    const savedOrder = await newOrder.save({ session });
 
-    for (let item of saveOrder.items) {
+    for (let item of savedOrder.items) {
       const color = item.selectedVariant?.color;
       const size = item.selectedVariant?.size;
 
@@ -191,13 +209,13 @@ export const placeOrder = async (req, res) => {
     return res.status(201).json({
       message: "Order placed successfully. Inventory updated.",
 
-      orderId: saveOrder._id,
+      orderId: savedOrder._id,
 
-      orderStatus: saveOrder.orderStatus,
+      orderStatus: savedOrder.orderStatus,
 
-      paymentStatus: saveOrder.paymentStatus,
+      paymentStatus: savedOrder.paymentStatus,
 
-      totalAmount: saveOrder.totalAmount,
+      totalAmount: savedOrder.totalAmount,
     });
   } catch (error) {
     await session.abortTransaction();
@@ -292,9 +310,9 @@ export const cancelOrder = async (req, res) => {
     }
 
     if (order.user.toString() !== req.user.id) {
-      await session.abortTransaction;
+      await session.abortTransaction();
       session.endSession();
-      return res.status(400).json({
+      return res.status(403).json({
         message: "You are not authorized to access this order.",
       });
     }
