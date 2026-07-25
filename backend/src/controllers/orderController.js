@@ -2,9 +2,10 @@ import Cart from "../models/cartModel.js";
 import Product from "../models/productModel.js";
 import Order from "../models/orderModel.js";
 import User from "../models/userModel.js";
+import { executeOrderFinalization } from "../services/orderService.js";
 import mongoose from "mongoose";
 
-const validateAndCalculateCart = (cart) => {
+export const validateAndCalculateCart = (cart) => {
   let totalAmount = 0;
   const orderItemsSnapshot = [];
 
@@ -92,6 +93,49 @@ export const proceedToCheckout = async (req, res) => {
   }
 };
 
+export const placeOrderCOB = async (req, res) => {
+  const session = await mongoose.startSession();
+  try {
+    session.startTransaction();
+
+    const { addressId } = req.body;
+    const user = await User.findById(req.user.id).session(session);
+    const cart = await Cart.findOne({ user: req.user.id })
+      .populate("items.product")
+      .session(session);
+
+    if (!cart || cart.items.length === 0) throw new Error("Cart is empty");
+    const { totalAmount, itemsSnapshot } = validateAndCalculateCart(cart);
+    const selectedAddress = user.addresses.id(addressId);
+    const order = await executeOrderFinalization({
+      user,
+      itemsSnapshot,
+      shippingAddress: {
+        fullName: selectedAddress.fullName,
+        phone: selectedAddress.phone,
+        houseBuilding: selectedAddress.houseBuilding,
+        streetArea: selectedAddress.streetArea,
+        landmark: selectedAddress.landmark,
+        city: selectedAddress.city,
+        state: selectedAddress.state,
+        country: selectedAddress.country,
+        pincode: selectedAddress.pincode,
+      },
+      totalAmount,
+      paymentMethod: "COD",
+      paymentStatus: "pending",
+      session,
+    });
+    await session.commitTransaction();
+    res.status(201).json({ success: true, orderId: order._id });
+  } catch (error) {
+    await session.abortTransaction();
+    res.status(400).json({ message: error.message });
+  }
+  finally{
+    session.endSession();
+  }
+};
 export const placeOrder = async (req, res) => {
   const session = await mongoose.startSession();
   try {
@@ -277,7 +321,7 @@ export const getOrderById = async (req, res) => {
         .json({ message: "Access denied. You do not own this order record." });
     }
 
-    return res.status(200).json({ order });
+    return res.status(200).json({ success: true, order: order });
   } catch (error) {
     console.error("Fetch Single Order Detail Error:", error);
     return res
