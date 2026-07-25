@@ -8,6 +8,7 @@ import reviewRoutes from "./routes/reviewRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import addressRoute from "./routes/addressRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js"
 import cors from "cors";
 
 dotenv.config();
@@ -21,6 +22,7 @@ app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/review", reviewRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/payment",paymentRoutes)
 
 connectDB();
 const port = process.env.PORT || 5000;
