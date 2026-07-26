@@ -3,19 +3,18 @@ import dotenv from "dotenv";
 import connectDB from "./config/db.js";
 import userRoutes from "./routes/authRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
-import wishlistRoutes from "./routes/whishlistRoutes.js";
+import wishlistRoutes from "./routes/wishlistRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import addressRoute from "./routes/addressRoutes.js";
-import paymentRoutes from "./routes/paymentRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js"
 import cors from "cors";
 
 dotenv.config();
 const app = express();
 app.use(cors());
 app.use(express.json());
-
 app.use("/api/user", userRoutes);
 app.use("/api/user/address", addressRoute);
 app.use("/api/products", productRoutes);
@@ -23,7 +22,7 @@ app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/review", reviewRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
-app.use("/api/payment", paymentRoutes);
+app.use("/api/payment",paymentRoutes)
 
 connectDB();
 const port = process.env.PORT || 5000;

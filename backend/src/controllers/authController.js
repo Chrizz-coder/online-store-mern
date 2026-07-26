@@ -50,8 +50,7 @@ export const registerUser = async (req, res) => {
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-    
-    
+
     if (!email || !password) {
       return res
         .status(400)

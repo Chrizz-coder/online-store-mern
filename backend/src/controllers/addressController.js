@@ -82,8 +82,8 @@ export const updateAddresses = async (req, res) => {
         .json({ message: "Invalid address tracking identifier format." });
     }
 
-    // const errorMessage = validateAddressFields(req.body);
-    // if (errorMessage) return res.status(400).json({ message: errorMessage });
+    const errorMessage = validateAddressFields(req.body);
+    if (errorMessage) return res.status(400).json({ message: errorMessage });
 
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: "User not found." });
@@ -95,20 +95,15 @@ export const updateAddresses = async (req, res) => {
         .json({ message: "Target address record not found." });
     }
 
-    addressToUpdate.fullName = req.body.fullName || addressToUpdate.fullName;
-    addressToUpdate.phone = req.body.phone || addressToUpdate.phone;
-    addressToUpdate.houseBuilding =
-      req.body.houseBuilding || addressToUpdate.houseBuilding;
-    addressToUpdate.streetArea =
-      req.body.streetArea || addressToUpdate.streetArea;
-    addressToUpdate.landmark =
-      req.body.landmark !== undefined
-        ? req.body.landmark
-        : addressToUpdate.landmark;
-    addressToUpdate.city = req.body.city || addressToUpdate.city;
-    addressToUpdate.state = req.body.state || addressToUpdate.state;
-    addressToUpdate.country = req.body.country || addressToUpdate.country;
-    addressToUpdate.pincode = req.body.pincode || addressToUpdate.pincode;
+    addressToUpdate.fullName = req.body.fullName;
+    addressToUpdate.phone = req.body.phone;
+    addressToUpdate.houseBuilding = req.body.houseBuilding;
+    addressToUpdate.streetArea = req.body.streetArea;
+    addressToUpdate.landmark = req.body.landmark || "";
+    addressToUpdate.city = req.body.city;
+    addressToUpdate.state = req.body.state;
+    addressToUpdate.country = req.body.country || "India";
+    addressToUpdate.pincode = req.body.pincode;
     addressToUpdate.addressType =
       req.body.addressType || addressToUpdate.addressType;
 
