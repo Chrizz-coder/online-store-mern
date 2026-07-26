@@ -12,4 +12,4 @@ router.post("/",addReview)
 router.put("/:reviewId",updateReview)
 router.delete("/:reviewId",deleteReview)
 
-export const router;
+export default router;
