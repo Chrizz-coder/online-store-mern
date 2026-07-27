@@ -9,7 +9,6 @@ const productSchema = new mongoose.Schema(
     },
     slug: {
       type: String,
-      required: true,
       trim: true,
     },
     description: {
@@ -53,7 +52,7 @@ const productSchema = new mongoose.Schema(
 
         stock: {
           type: Number,
-          
+
           default: 0,
           min: 0,
         },
@@ -86,14 +85,13 @@ const productSchema = new mongoose.Schema(
   },
 );
 
-productSchema.pre("save", function (next) {
-  if (!this.isModified("name")) return next();
+productSchema.pre("save", function () {
+  if (!this.isModified("name")) return;
   this.slug = this.name
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
-  next();
 });
 const Product = mongoose.model("Product", productSchema);
 

@@ -1,2 +1,26 @@
 notes/
+# Dependencies
+node_modules/
+
+# Environment
 .env
+.env.*
+
+!.env.example
+
+# Logs
+*.log
+
+# Build
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+
+# Coverage
+coverage/

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Product from "../models/productModel.js";
 
 export const getAllProducts = async (req, res) => {
@@ -130,7 +131,7 @@ export const updateProduct = async (req, res) => {
     const updatedProduct = await Product.findByIdAndUpdate(
       productId,
       { $set: updates },
-      { new: true, runValidators: true },
+      { returnDocument: "after", runValidators: true },
     );
     if (!updatedProduct) {
       return res.status(404).json({
@@ -146,6 +147,63 @@ export const updateProduct = async (req, res) => {
   }
 };
 
+export const updateProductVariantFields = async (req, res) => {
+  try {
+    const { productId, variantId } = req.params;
+    const { price, stock } = req.body;
+
+    if (
+      !mongoose.Types.ObjectId.isValid(productId) ||
+      !mongoose.Types.ObjectId.isValid(variantId)
+    ) {
+      return res.status(400).json({
+        message: "Malformed identifier parameters parsed.",
+      });
+    }
+
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({ message: "Product record missing." });
+    }
+
+    const targetVariantCard = product.variants.id(variantId);
+    if (!targetVariantCard) {
+      return res.status(404).json({
+        message: "The chosen variant configuration option was not found.",
+      });
+    }
+
+    if (price !== undefined) {
+      if (Number(price) < 0) {
+        return res.status(400).json({
+          message: "Variant price must be greater than or equal to 0.",
+        });
+      }
+      targetVariantCard.price = price;
+    }
+
+    if (stock !== undefined) {
+      if (Number(stock) < 0) {
+        return res.status(400).json({
+          message: "Variant stock must be greater than or equal to 0.",
+        });
+      }
+      targetVariantCard.stock = stock;
+    }
+
+    await product.save();
+    return res.status(200).json({
+      message: "Variant adjusted successfully.",
+      product,
+    });
+  } catch (error) {
+    console.error("Variant update failure exception:", error);
+    return res.status(500).json({
+      message: "Server error processing your variants update request.",
+    });
+  }
+};
+
 export const deleteProduct = async (req, res) => {
   try {
     const productId = req.params.id;
@@ -157,7 +215,7 @@ export const deleteProduct = async (req, res) => {
         .json({ message: "Target product listing not found" });
     }
     product.isActive = false;
-    await Product.save();
+    await product.save();
     return res.status(200).json({
       message: "Product deactivated and hidden from store successfully",
     });
