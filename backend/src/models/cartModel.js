@@ -49,17 +49,16 @@ const cartSchema = new mongoose.Schema(
   },
 );
 
-cartSchema.pre("save", function (next) {
+cartSchema.pre("save", function () {
   if (this.items.length === 0) {
     this.cartSubtotal = 0;
-    return next();
+    return;
   }
 
   this.cartSubtotal = this.items.reduce((total, item) => {
     return total + item.priceAtTimeOfAdding * item.quantity;
   }, 0);
   this.cartSubtotal = parseFloat(this.cartSubtotal.toFixed(2));
-  next();
 });
 
 const Cart = mongoose.model("Cart", cartSchema);

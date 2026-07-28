@@ -277,7 +277,10 @@ export const deleteCartItem = async (req, res) => {
         .json({ message: "Invalid product identifier format." });
     }
 
-    return res
+    return;
+    console.error(error);
+
+    res
       .status(500)
       .json({ message: "Server error executing item row removal." });
   }
