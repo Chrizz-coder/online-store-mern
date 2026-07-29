@@ -245,19 +245,19 @@ export const deleteCartItem = async (req, res) => {
   try {
     const { productId } = req.params;
     const { selectedVariant } = req.body;
-    const { color } = selectedVariant?.color;
-    const { size } = selectedVariant?.size;
+    const color = selectedVariant?.color;
+    const size = selectedVariant?.size;
 
-    const cart = await Cart.findOne({ user: user.req.id });
+    const cart = await Cart.findOne({ user: req.user.id });
     if (!cart) {
       return res.status(404).json({ message: "Shopping cart not found" });
     }
 
-    const itemIndex = cart.items.findIndex((item) => {
+    const itemIndex = cart.items.findIndex((item) =>
       item.product.toString() === productId &&
         item.selectedVariant?.color === color &&
-        item.selectedVariant?.size === size;
-    });
+        item.selectedVariant?.size === size,
+    );
 
     if (itemIndex === -1) {
       return res.status(404).json({ message: "Target item not found in cart" });
@@ -277,10 +277,7 @@ export const deleteCartItem = async (req, res) => {
         .json({ message: "Invalid product identifier format." });
     }
 
-    return;
-    console.error(error);
-
-    res
+    return res
       .status(500)
       .json({ message: "Server error executing item row removal." });
   }
