@@ -35,18 +35,25 @@ export const addAddress = async (req, res) => {
       phone: req.body.phone,
       houseBuilding: req.body.houseBuilding,
       streetArea: req.body.streetArea,
-      landmark: req.body.landmark || "",
+      landmark: req.body.landmark ?? "",
       city: req.body.city,
       state: req.body.state,
-      country: req.body.country || "India",
+      country: req.body.country ?? "India",
       pincode: req.body.pincode,
-      addressType: req.body.addressType || "Home",
+      addressType: req.body.addressType ?? "Home",
       isDefault: isFirstAddress ? true : false, // Enforce rule dynamically
     };
 
     user.addresses.push(newAddress);
     await user.save();
-    return res.status(201).json({ message: "Addresses added successfully." });
+    const address = user.addresses[user.addresses.length - 1];
+
+    return res.status(201).json({
+      message: "Address added successfully.",
+      address,
+      count: user.addresses.length,
+      addresses: user.addresses,
+    });
   } catch (error) {
     console.error("Add Address Error:", error);
     return res

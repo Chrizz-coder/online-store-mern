@@ -63,7 +63,7 @@ const orderSchema = new mongoose.Schema(
       },
       landmark: {
         type: String,
-        required: true,
+        default: "",
       },
       city: {
         type: String,
@@ -76,6 +76,7 @@ const orderSchema = new mongoose.Schema(
       country: {
         type: String,
         required: true,
+        default: "India",
       },
       pincode: {
         type: String,

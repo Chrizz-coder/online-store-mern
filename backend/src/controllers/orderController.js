@@ -93,49 +93,49 @@ export const proceedToCheckout = async (req, res) => {
   }
 };
 
-export const placeOrderCOB = async (req, res) => {
-  const session = await mongoose.startSession();
-  try {
-    session.startTransaction();
+// export const placeOrderCOD = async (req, res) => {
+//   const session = await mongoose.startSession();
+//   try {
+//     session.startTransaction();
 
-    const { addressId } = req.body;
-    const user = await User.findById(req.user.id).session(session);
-    const cart = await Cart.findOne({ user: req.user.id })
-      .populate("items.product")
-      .session(session);
+//     const { addressId } = req.body;
+//     const user = await User.findById(req.user.id).session(session);
+//     const cart = await Cart.findOne({ user: req.user.id })
+//       .populate("items.product")
+//       .session(session);
 
-    if (!cart || cart.items.length === 0) throw new Error("Cart is empty");
-    const { totalAmount, itemsSnapshot } = validateAndCalculateCart(cart);
-    const selectedAddress = user.addresses.id(addressId);
-    const order = await executeOrderFinalization({
-      user,
-      itemsSnapshot,
-      shippingAddress: {
-        fullName: selectedAddress.fullName,
-        phone: selectedAddress.phone,
-        houseBuilding: selectedAddress.houseBuilding,
-        streetArea: selectedAddress.streetArea,
-        landmark: selectedAddress.landmark,
-        city: selectedAddress.city,
-        state: selectedAddress.state,
-        country: selectedAddress.country,
-        pincode: selectedAddress.pincode,
-      },
-      totalAmount,
-      paymentMethod: "COD",
-      paymentStatus: "pending",
-      session,
-    });
-    await session.commitTransaction();
-    res.status(201).json({ success: true, orderId: order._id });
-  } catch (error) {
-    await session.abortTransaction();
-    res.status(400).json({ message: error.message });
-  }
-  finally{
-    session.endSession();
-  }
-};
+//     if (!cart || cart.items.length === 0) throw new Error("Cart is empty");
+//     const { totalAmount, itemsSnapshot } = validateAndCalculateCart(cart);
+//     const selectedAddress = user.addresses.id(addressId);
+//     const order = await executeOrderFinalization({
+//       user,
+//       itemsSnapshot,
+//       shippingAddress: {
+//         fullName: selectedAddress.fullName,
+//         phone: selectedAddress.phone,
+//         houseBuilding: selectedAddress.houseBuilding,
+//         streetArea: selectedAddress.streetArea,
+//         landmark: selectedAddress.landmark ?? "",
+//         city: selectedAddress.city,
+//         state: selectedAddress.state,
+//         country: selectedAddress.country ?? "India",
+//         pincode: selectedAddress.pincode,
+//       },
+//       totalAmount,
+//       paymentMethod: "COD",
+//       paymentStatus: "pending",
+//       session,
+//     });
+//     await session.commitTransaction();
+//     res.status(201).json({ success: true, orderId: order._id });
+//   } catch (error) {
+//     await session.abortTransaction();
+//     res.status(400).json({ message: error.message });
+//   }
+//   finally{
+//     session.endSession();
+//   }
+// };
 export const placeOrder = async (req, res) => {
   const session = await mongoose.startSession();
   try {
@@ -202,10 +202,10 @@ export const placeOrder = async (req, res) => {
         phone: selectedAddress.phone,
         houseBuilding: selectedAddress.houseBuilding,
         streetArea: selectedAddress.streetArea,
-        landmark: selectedAddress.landmark,
+        landmark: selectedAddress.landmark ?? "",
         city: selectedAddress.city,
         state: selectedAddress.state,
-        country: selectedAddress.country,
+        country: selectedAddress.country ?? "India",
         pincode: selectedAddress.pincode,
       },
       totalAmount: totalAmount,
