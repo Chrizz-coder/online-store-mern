@@ -18,31 +18,114 @@ const updateProductAvgRating = async (productId) => {
   });
 };
 
+const isObjectId = (value) =>
+  typeof value === "string" && mongoose.Types.ObjectId.isValid(value);
+
+const getRequestedVariantId = ({ variantId, selectedVariant }) =>
+  variantId ?? selectedVariant?.variantId ?? selectedVariant?._id;
+
+const hasVariantAttributes = (selectedVariant) =>
+  selectedVariant &&
+  (Object.hasOwn(selectedVariant, "color") ||
+    Object.hasOwn(selectedVariant, "size"));
+
+const getVariantByAttributes = (variants, selectedVariant) =>
+  variants.find(
+    (variant) =>
+      variant.color === selectedVariant.color &&
+      variant.size === selectedVariant.size,
+  );
+
 export const addReview = async (req, res) => {
   try {
-    const { productId, rating, comment } = req.body;
+    const {
+      productId,
+      variantId,
+      selectedVariant,
+      rating,
+      comment,
+    } = req.body;
+
     if (!productId || !rating || !comment) {
-      return res.status(400).json({
-        message: "Product ID, rating number, and comments are mandatory.",
-      });
+      return res
+        .status(400)
+        .json({ message: "Product ID, rating number, and comments are mandatory." });
     }
 
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
-      return res.status(400).json({
-        message: "Rating parameters must be an integer score between 1 and 5.",
-      });
+      return res
+        .status(400)
+        .json({ message: "Rating parameters must be an integer score between 1 and 5." });
     }
 
-    const productExists = await Product.findById(productId);
-    if (!productExists || !productExists.isActive) {
-      return res.status(404).json({
-        message: "Product not found or unavailable.",
-      });
+    let product = await Product.findById(productId);
+    let matchedVariant = product?.variants.id(productId);
+
+    if (!product) {
+      product = await Product.findOne({ "variants._id": productId });
+      matchedVariant = product?.variants.id(productId);
+    }
+
+    if (!product || !product.isActive) {
+      return res
+        .status(404)
+        .json({ message: "Product not found or currently unavailable." });
+    }
+
+    const requestedVariantId = getRequestedVariantId({
+      variantId,
+      selectedVariant,
+    });
+
+    if (requestedVariantId) {
+      if (!isObjectId(requestedVariantId)) {
+        return res.status(400).json({
+          message: "Invalid variant identifier format.",
+        });
+      }
+
+      const requestedVariant = product.variants.id(requestedVariantId);
+
+      if (!requestedVariant) {
+        return res.status(400).json({
+          message: "Selected variant does not belong to this product.",
+        });
+      }
+
+      matchedVariant = requestedVariant;
+    } else if (!matchedVariant && hasVariantAttributes(selectedVariant)) {
+      matchedVariant = getVariantByAttributes(
+        product.variants,
+        selectedVariant,
+      );
+
+      if (!matchedVariant) {
+        return res.status(400).json({
+          message: "Selected variant does not belong to this product.",
+        });
+      }
     }
 
     const purchasedOrder = await Order.findOne({
       user: req.user.id,
-      "items.product": productId,
+      items: {
+        $elemMatch: {
+          product: product._id,
+          ...(matchedVariant && {
+            $or: [
+              { "selectedVariant.variantId": matchedVariant._id },
+              {
+                ...(matchedVariant.color && {
+                  "selectedVariant.color": matchedVariant.color,
+                }),
+                ...(matchedVariant.size && {
+                  "selectedVariant.size": matchedVariant.size,
+                }),
+              },
+            ],
+          }),
+        },
+      },
     });
 
     if (!purchasedOrder) {
@@ -54,26 +137,60 @@ export const addReview = async (req, res) => {
 
     const existingReview = await Review.findOne({
       user: req.user.id,
-      product: productId,
+      product: product._id,
+      ...(matchedVariant
+        ? {
+            $or: [
+              { "selectedVariant.variantId": matchedVariant._id },
+              {
+                ...(matchedVariant.color && {
+                  "selectedVariant.color": matchedVariant.color,
+                }),
+                ...(matchedVariant.size && {
+                  "selectedVariant.size": matchedVariant.size,
+                }),
+              },
+            ],
+          }
+        : {
+            selectedVariant: { $exists: false },
+          }),
     });
+
     if (existingReview) {
-      return res.status(400).json({
-        message: "Operation rejected. You have already reviewed this product.",
-      });
+      return res
+        .status(400)
+        .json({ message: "Operation rejected. You have already reviewed this product variant." });
     }
+
     const newReview = new Review({
       user: req.user.id,
-      product: productId,
+      product: product._id,
+      selectedVariant: matchedVariant
+        ? {
+            variantId: matchedVariant._id,
+            color: matchedVariant.color,
+            size: matchedVariant.size,
+          }
+        : undefined,
       rating,
       comment,
     });
+
     await newReview.save();
-    await updateProductAvgRating(productId);
+
+    await updateProductAvgRating(product._id);
+
     return res
       .status(201)
       .json({ message: "Review posted successfully.", review: newReview });
   } catch (error) {
     console.error("Add Review Error:", error);
+    if (error.code === 11000) {
+      return res
+        .status(400)
+        .json({ message: "Operation rejected. You have already reviewed this product variant." });
+    }
     if (error.name === "CastError" || error.kind === "ObjectId") {
       return res
         .status(400)
@@ -92,7 +209,19 @@ export const getProductReviews = async (req, res) => {
         .status(400)
         .json({ message: "Malformed product identifier parameters." });
     }
-    const reviews = await Review.find({ product: productId })
+
+    let targetProductId = productId;
+    const productExists = await Product.findById(productId);
+    if (!productExists) {
+      const parentProduct = await Product.findOne({
+        "variants._id": productId,
+      });
+      if (parentProduct) {
+        targetProductId = parentProduct._id;
+      }
+    }
+
+    const reviews = await Review.find({ product: targetProductId })
       .populate("user", "name")
       .sort({ createdAt: -1 });
     return res.status(200).json({ count: reviews.length, reviews });
@@ -114,7 +243,7 @@ export const updateReview = async (req, res) => {
         message: "Rating parameters must be an integer score between 1 and 5.",
       });
     }
-    if (!mongoose.Types.ObjectId.isValid(productId)) {
+    if (!mongoose.Types.ObjectId.isValid(reviewId)) {
       return res
         .status(400)
         .json({ message: "Malformed product identifier parameters." });
