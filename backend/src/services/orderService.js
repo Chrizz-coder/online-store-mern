@@ -44,7 +44,6 @@ export const executeOrderFinalization = async ({
     }
   }
 
-  // 3. Clear the Cart
   await Cart.findOneAndUpdate(
     { user: user._id },
     { $set: { items: [], cartSubtotal: 0 } },

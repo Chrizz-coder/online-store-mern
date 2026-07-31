@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 import Product from "../models/productModel.js";
 import Order from "../models/orderModel.js";
 import Review from "../models/reviewModel.js";
+import {
+  isObjectId,
+  getRequestedVariantId,
+  hasVariantAttributes,
+  getVariantByAttributes,
+} from "../utils/variantUtils.js";
 
 const updateProductAvgRating = async (productId) => {
   const reviews = await Review.find({ product: productId });
@@ -18,44 +24,20 @@ const updateProductAvgRating = async (productId) => {
   });
 };
 
-const isObjectId = (value) =>
-  typeof value === "string" && mongoose.Types.ObjectId.isValid(value);
-
-const getRequestedVariantId = ({ variantId, selectedVariant }) =>
-  variantId ?? selectedVariant?.variantId ?? selectedVariant?._id;
-
-const hasVariantAttributes = (selectedVariant) =>
-  selectedVariant &&
-  (Object.hasOwn(selectedVariant, "color") ||
-    Object.hasOwn(selectedVariant, "size"));
-
-const getVariantByAttributes = (variants, selectedVariant) =>
-  variants.find(
-    (variant) =>
-      variant.color === selectedVariant.color &&
-      variant.size === selectedVariant.size,
-  );
-
 export const addReview = async (req, res) => {
   try {
-    const {
-      productId,
-      variantId,
-      selectedVariant,
-      rating,
-      comment,
-    } = req.body;
+    const { productId, variantId, selectedVariant, rating, comment } = req.body;
 
     if (!productId || !rating || !comment) {
-      return res
-        .status(400)
-        .json({ message: "Product ID, rating number, and comments are mandatory." });
+      return res.status(400).json({
+        message: "Product ID, rating, and comment are required.",
+      });
     }
 
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
-      return res
-        .status(400)
-        .json({ message: "Rating parameters must be an integer score between 1 and 5." });
+      return res.status(400).json({
+        message: "Rating must be an integer between 1 and 5.",
+      });
     }
 
     let product = await Product.findById(productId);
@@ -67,9 +49,9 @@ export const addReview = async (req, res) => {
     }
 
     if (!product || !product.isActive) {
-      return res
-        .status(404)
-        .json({ message: "Product not found or currently unavailable." });
+      return res.status(404).json({
+        message: "Product not found or currently unavailable.",
+      });
     }
 
     const requestedVariantId = getRequestedVariantId({
@@ -94,10 +76,7 @@ export const addReview = async (req, res) => {
 
       matchedVariant = requestedVariant;
     } else if (!matchedVariant && hasVariantAttributes(selectedVariant)) {
-      matchedVariant = getVariantByAttributes(
-        product.variants,
-        selectedVariant,
-      );
+      matchedVariant = getVariantByAttributes(product.variants, selectedVariant);
 
       if (!matchedVariant) {
         return res.status(400).json({
@@ -131,7 +110,7 @@ export const addReview = async (req, res) => {
     if (!purchasedOrder) {
       return res.status(403).json({
         message:
-          "Access denied. You can only review products you have officially purchased.",
+          "Access denied. You can only review products you have purchased.",
       });
     }
 
@@ -152,15 +131,13 @@ export const addReview = async (req, res) => {
               },
             ],
           }
-        : {
-            selectedVariant: { $exists: false },
-          }),
+        : { selectedVariant: { $exists: false } }),
     });
 
     if (existingReview) {
-      return res
-        .status(400)
-        .json({ message: "Operation rejected. You have already reviewed this product variant." });
+      return res.status(409).json({
+        message: "You have already reviewed this product variant.",
+      });
     }
 
     const newReview = new Review({
@@ -178,7 +155,6 @@ export const addReview = async (req, res) => {
     });
 
     await newReview.save();
-
     await updateProductAvgRating(product._id);
 
     return res
@@ -187,27 +163,26 @@ export const addReview = async (req, res) => {
   } catch (error) {
     console.error("Add Review Error:", error);
     if (error.code === 11000) {
-      return res
-        .status(400)
-        .json({ message: "Operation rejected. You have already reviewed this product variant." });
+      return res.status(409).json({
+        message: "You have already reviewed this product variant.",
+      });
     }
-    if (error.name === "CastError" || error.kind === "ObjectId") {
-      return res
-        .status(400)
-        .json({ message: "Malformed product identifier values detected." });
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        message: "Invalid product identifier format.",
+      });
     }
-    return res
-      .status(500)
-      .json({ message: "Server error executing review creations." });
+    return res.status(500).json({ message: "Server error adding review." });
   }
 };
+
 export const getProductReviews = async (req, res) => {
   try {
     const { productId } = req.params;
     if (!mongoose.Types.ObjectId.isValid(productId)) {
       return res
         .status(400)
-        .json({ message: "Malformed product identifier parameters." });
+        .json({ message: "Invalid product identifier format." });
     }
 
     let targetProductId = productId;
@@ -224,12 +199,11 @@ export const getProductReviews = async (req, res) => {
     const reviews = await Review.find({ product: targetProductId })
       .populate("user", "name")
       .sort({ createdAt: -1 });
+
     return res.status(200).json({ count: reviews.length, reviews });
   } catch (error) {
     console.error("Get Reviews Error:", error);
-    return res
-      .status(500)
-      .json({ message: "Server error pulling product reviews layout logs." });
+    return res.status(500).json({ message: "Server error fetching reviews." });
   }
 };
 
@@ -238,80 +212,78 @@ export const updateReview = async (req, res) => {
     const { reviewId } = req.params;
     const { rating, comment } = req.body;
 
-    if (!Number.isInteger(rating) || rating < 1 || rating > 5 || !comment) {
-      return res.status(400).json({
-        message: "Rating parameters must be an integer score between 1 and 5.",
-      });
-    }
     if (!mongoose.Types.ObjectId.isValid(reviewId)) {
       return res
         .status(400)
-        .json({ message: "Malformed product identifier parameters." });
+        .json({ message: "Invalid review identifier format." });
     }
-    const targetReview = await Review.findById(reviewId);
-    if (!targetReview) {
-      return res
-        .status(404)
-        .json({ message: "Target review documentation records not found." });
-    }
-    if (targetReview.user.toString() !== req.user.id) {
-      return res.status(403).json({
-        message: "Forbidden. You cannot manipulate someone else's review text.",
+
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5 || !comment) {
+      return res.status(400).json({
+        message: "Rating must be an integer between 1 and 5, and comment is required.",
       });
     }
+
+    const targetReview = await Review.findById(reviewId);
+    if (!targetReview) {
+      return res.status(404).json({ message: "Review not found." });
+    }
+
+    if (targetReview.user.toString() !== req.user.id) {
+      return res.status(403).json({
+        message: "Forbidden. You can only edit your own reviews.",
+      });
+    }
+
     targetReview.rating = rating;
     targetReview.comment = comment;
     await targetReview.save();
-
     await updateProductAvgRating(targetReview.product);
+
     return res.status(200).json({
       message: "Review updated successfully.",
       review: targetReview,
     });
   } catch (error) {
     console.error("Update Review Error:", error);
-    if (error.name === "CastError" || error.kind === "ObjectId") {
+    if (error.name === "CastError") {
       return res
         .status(400)
-        .json({ message: "Malformed identifier format provided." });
+        .json({ message: "Invalid identifier format." });
     }
-    return res
-      .status(500)
-      .json({ message: "Server error processing review modification loops." });
+    return res.status(500).json({ message: "Server error updating review." });
   }
 };
 
 export const deleteReview = async (req, res) => {
   try {
     const { reviewId } = req.params;
+
     const targetReview = await Review.findById(reviewId);
     if (!targetReview) {
-      return res
-        .status(404)
-        .json({ message: "Target review documentation records not found." });
+      return res.status(404).json({ message: "Review not found." });
     }
+
     if (targetReview.user.toString() !== req.user.id) {
       return res.status(403).json({
-        message: "Forbidden. You cannot manipulate someone else's review text.",
+        message: "Forbidden. You can only delete your own reviews.",
       });
     }
 
-    const cachedProductId = targetReview.product;
+    const productId = targetReview.product;
     await targetReview.deleteOne();
+    await updateProductAvgRating(productId);
 
-    await updateProductAvgRating(cachedProductId);
     return res
       .status(200)
-      .json({ message: "Review removed cleanly. Averages recalculated." });
+      .json({ message: "Review deleted successfully. Ratings recalculated." });
   } catch (error) {
     console.error("Delete Review Error:", error);
-    if (error.name === "CastError" || error.kind === "ObjectId") {
+    if (error.name === "CastError") {
       return res
         .status(400)
-        .json({ message: "Malformed structural identifier format parsed." });
+        .json({ message: "Invalid identifier format." });
     }
-    return res
-      .status(500)
-      .json({ message: "Server error executing review data purges." });
+    return res.status(500).json({ message: "Server error deleting review." });
   }
 };

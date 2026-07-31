@@ -41,7 +41,7 @@ export const addAddress = async (req, res) => {
       country: req.body.country ?? "India",
       pincode: req.body.pincode,
       addressType: req.body.addressType ?? "Home",
-      isDefault: isFirstAddress ? true : false, // Enforce rule dynamically
+      isDefault: isFirstAddress,
     };
 
     user.addresses.push(newAddress);
@@ -56,9 +56,7 @@ export const addAddress = async (req, res) => {
     });
   } catch (error) {
     console.error("Add Address Error:", error);
-    return res
-      .status(500)
-      .json({ message: "Server error executing address additions." });
+    return res.status(500).json({ message: "Server error adding address." });
   }
 };
 
@@ -73,9 +71,7 @@ export const getAddresses = async (req, res) => {
     });
   } catch (error) {
     console.error("Get Addresses Error:", error);
-    return res
-      .status(500)
-      .json({ message: "Server error pulling address profiles." });
+    return res.status(500).json({ message: "Server error fetching addresses." });
   }
 };
 
@@ -86,20 +82,15 @@ export const updateAddresses = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(addressId)) {
       return res
         .status(400)
-        .json({ message: "Invalid address tracking identifier format." });
+        .json({ message: "Invalid address identifier format." });
     }
-
-    // const errorMessage = validateAddressFields(req.body);
-    // if (errorMessage) return res.status(400).json({ message: errorMessage });
 
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: "User not found." });
 
     const addressToUpdate = user.addresses.id(addressId);
     if (!addressToUpdate) {
-      return res
-        .status(404)
-        .json({ message: "Target address record not found." });
+      return res.status(404).json({ message: "Address not found." });
     }
 
     addressToUpdate.fullName = req.body.fullName ?? addressToUpdate.fullName;
@@ -123,9 +114,7 @@ export const updateAddresses = async (req, res) => {
     });
   } catch (error) {
     console.error("Update Address Error:", error);
-    return res
-      .status(500)
-      .json({ message: "Server error modifying address fields." });
+    return res.status(500).json({ message: "Server error updating address." });
   }
 };
 
@@ -136,7 +125,7 @@ export const deleteAddress = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(addressId)) {
       return res
         .status(400)
-        .json({ message: "Invalid address tracking identifier format." });
+        .json({ message: "Invalid address identifier format." });
     }
 
     const user = await User.findById(req.user.id);
@@ -144,9 +133,7 @@ export const deleteAddress = async (req, res) => {
 
     const targetAddress = user.addresses.id(addressId);
     if (!targetAddress) {
-      return res
-        .status(404)
-        .json({ message: "Target address record not found in profile." });
+      return res.status(404).json({ message: "Address not found." });
     }
 
     const wasDefault = targetAddress.isDefault;
@@ -164,9 +151,7 @@ export const deleteAddress = async (req, res) => {
     });
   } catch (error) {
     console.error("Delete Address Error:", error);
-    return res
-      .status(500)
-      .json({ message: "Server error removing address records." });
+    return res.status(500).json({ message: "Server error deleting address." });
   }
 };
 
@@ -177,16 +162,15 @@ export const defaultAddress = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(addressId)) {
       return res
         .status(400)
-        .json({ message: "Invalid address tracking identifier format." });
+        .json({ message: "Invalid address identifier format." });
     }
 
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: "User not found." });
+
     const targetAddress = user.addresses.id(addressId);
     if (!targetAddress) {
-      return res
-        .status(404)
-        .json({ message: "Target address record not found in profile." });
+      return res.status(404).json({ message: "Address not found." });
     }
 
     user.addresses.forEach((address) => {
@@ -195,6 +179,7 @@ export const defaultAddress = async (req, res) => {
 
     targetAddress.isDefault = true;
     await user.save();
+
     return res.status(200).json({
       message: "Default address updated successfully.",
       addresses: user.addresses,
@@ -203,6 +188,6 @@ export const defaultAddress = async (req, res) => {
     console.error("Set Default Address Error:", error);
     return res
       .status(500)
-      .json({ message: "Server error adjusting primary default assignments." });
+      .json({ message: "Server error updating default address." });
   }
 };

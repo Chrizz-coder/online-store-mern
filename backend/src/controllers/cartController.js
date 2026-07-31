@@ -7,16 +7,15 @@ export const addToCart = async (req, res) => {
     const qty = quantity ?? 1;
 
     if (!Number.isInteger(qty) || qty <= 0) {
-      return res.status(400).json({ message: "quantity is invalid" });
+      return res.status(400).json({ message: "Quantity must be a positive integer." });
     }
+
     const color = selectedVariant?.color;
     const size = selectedVariant?.size;
 
-    const currentProduct = await Product.findById(productId);
-    if (!currentProduct || !currentProduct.isActive) {
-      return res
-        .status(404)
-        .json({ message: "Product not found product ,unavailable." });
+    const product = await Product.findById(productId);
+    if (!product || !product.isActive) {
+      return res.status(404).json({ message: "Product not found or unavailable." });
     }
 
     let cart = await Cart.findOne({ user: req.user.id });
@@ -32,30 +31,25 @@ export const addToCart = async (req, res) => {
     );
 
     const existingQtyInCart = existingItem ? existingItem.quantity : 0;
-    let finalItemPrice = currentProduct.salePrice || currentProduct.basePrice;
+    let finalItemPrice = product.salePrice || product.basePrice;
 
-    if (currentProduct.variants && currentProduct.variants.length > 0) {
-      const matchedVariant = currentProduct.variants.find(
+    if (product.variants && product.variants.length > 0) {
+      const matchedVariant = product.variants.find(
         (v) => (!color || v.color === color) && (!size || v.size === size),
       );
 
       if (!matchedVariant) {
-        return res
-          .status(400)
-          .json({ message: "The specified variant does not exits." });
+        return res.status(400).json({ message: "Selected variant not found." });
       }
+
       finalItemPrice = matchedVariant.price || finalItemPrice;
 
       if (matchedVariant.stock < existingQtyInCart + qty) {
-        return res
-          .status(400)
-          .json({ message: "Cannot add more units, insufficient stock " });
+        return res.status(400).json({ message: "Insufficient stock for requested quantity." });
       }
     } else {
-      if (currentProduct.globalStock < existingQtyInCart + qty) {
-        return res
-          .status(400)
-          .json({ message: "Cannot add more units, insufficient stock " });
+      if (product.globalStock < existingQtyInCart + qty) {
+        return res.status(400).json({ message: "Insufficient stock for requested quantity." });
       }
     }
 
@@ -65,6 +59,7 @@ export const addToCart = async (req, res) => {
         item.selectedVariant?.color === color &&
         item.selectedVariant?.size === size,
     );
+
     if (existingItemIndex > -1) {
       cart.items[existingItemIndex].quantity += qty;
       cart.items[existingItemIndex].priceAtTimeOfAdding = finalItemPrice;
@@ -76,88 +71,83 @@ export const addToCart = async (req, res) => {
         priceAtTimeOfAdding: finalItemPrice,
       });
     }
+
     await cart.save();
     return res.status(200).json({
-      message: "Item added to your shopping cart successfully.",
+      message: "Item added to cart successfully.",
       cart,
     });
   } catch (error) {
     console.error("Add to Cart Error:", error);
-
-    if (error.name === "CastError" || error.kind === "ObjectId") {
-      return res
-        .status(400)
-        .json({ message: "Invalid product identifier format provided." });
+    if (error.name === "CastError") {
+      return res.status(400).json({ message: "Invalid product identifier format." });
     }
-
-    return res
-      .status(500)
-      .json({ message: "Server error processing your add-to-cart request." });
+    return res.status(500).json({ message: "Server error adding item to cart." });
   }
 };
 
 export const viewCart = async (req, res) => {
   try {
-    let cart = await Cart.findOne({ user: req.user.id }).populate(
-      "items.product",
-    );
+    let cart = await Cart.findOne({ user: req.user.id }).populate("items.product");
     if (!cart) {
       cart = new Cart({ user: req.user.id, items: [] });
       await cart.save();
       return res.status(200).json(cart);
     }
+
     let cartDataChanged = false;
-
     let verifiedItemsList = [];
-    for (let item of cart.items) {
-      const currentProduct = item.product;
-      if (!currentProduct || !currentProduct.isActive) {
-        cartDataChanged = true;
 
+    for (let item of cart.items) {
+      const product = item.product;
+      if (!product || !product.isActive) {
+        cartDataChanged = true;
         continue;
       }
-      let freshLivePrice = currentProduct.salePrice || currentProduct.basePrice;
-      let freshLiveStock = currentProduct.globalStock;
+
+      let freshPrice = product.salePrice || product.basePrice;
+      let freshStock = product.globalStock;
       const color = item.selectedVariant?.color;
       const size = item.selectedVariant?.size;
 
-      if (currentProduct.variants && currentProduct.variants.length > 0) {
-        const matchedVariant = currentProduct.variants.find(
+      if (product.variants && product.variants.length > 0) {
+        const matchedVariant = product.variants.find(
           (v) => (!color || v.color === color) && (!size || v.size === size),
         );
 
         if (matchedVariant) {
-          freshLivePrice = matchedVariant.price || freshLivePrice;
-          freshLiveStock = matchedVariant.stock;
+          freshPrice = matchedVariant.price || freshPrice;
+          freshStock = matchedVariant.stock;
         } else {
           cartDataChanged = true;
           continue;
         }
       }
 
-      if (item.priceAtTimeOfAdding !== freshLivePrice) {
-        item.priceAtTimeOfAdding = freshLivePrice;
+      if (item.priceAtTimeOfAdding !== freshPrice) {
+        item.priceAtTimeOfAdding = freshPrice;
         cartDataChanged = true;
       }
 
-      if (freshLiveStock === 0) {
+      if (freshStock === 0) {
         cartDataChanged = true;
-      } else if (freshLiveStock < item.quantity) {
-        item.quantity = freshLiveStock;
+      } else if (freshStock < item.quantity) {
+        item.quantity = freshStock;
         cartDataChanged = true;
       }
+
       verifiedItemsList.push(item);
     }
+
     if (cartDataChanged) {
       cart.items = verifiedItemsList;
       await cart.save();
     }
+
     return res.status(200).json(cart);
   } catch (error) {
-    console.error("Fetch Cart Sync Error:", error);
-    return res
-      .status(500)
-      .json({ message: "Server error pulling synchronized cart listings." });
+    console.error("View Cart Error:", error);
+    return res.status(500).json({ message: "Server error fetching cart." });
   }
 };
 
@@ -169,14 +159,12 @@ export const updateCartQuantity = async (req, res) => {
     const size = selectedVariant?.size;
 
     if (!Number.isInteger(quantity) || quantity < 0) {
-      return res
-        .status(400)
-        .json({ message: "Quantity must be a valid positive integer." });
+      return res.status(400).json({ message: "Quantity must be a valid non-negative integer." });
     }
-    const cart = await Cart.findOne({ user: req.user.id });
 
+    const cart = await Cart.findOne({ user: req.user.id });
     if (!cart) {
-      return res.status(404).json({ message: "Shopping cart not found" });
+      return res.status(404).json({ message: "Cart not found." });
     }
 
     const itemIndex = cart.items.findIndex(
@@ -187,57 +175,47 @@ export const updateCartQuantity = async (req, res) => {
     );
 
     if (itemIndex === -1) {
-      return res
-        .status(404)
-        .json({ message: " Target item not founded in your cart." });
+      return res.status(404).json({ message: "Item not found in cart." });
     }
-    const currentProduct = await Product.findById(productId);
-    if (!currentProduct || !currentProduct.isActive) {
-      return res.status(404).json({
-        message: "Product is currently unavailable on store shelves.",
-      });
+
+    const product = await Product.findById(productId);
+    if (!product || !product.isActive) {
+      return res.status(404).json({ message: "Product not found or unavailable." });
     }
+
     if (quantity === 0) {
       cart.items.splice(itemIndex, 1);
       await cart.save();
-      return res
-        .status(200)
-        .json({ message: "Item removed from the cart successfully", cart });
+      return res.status(200).json({ message: "Item removed from cart.", cart });
     }
 
-    if (currentProduct.variants && currentProduct.variants.length > 0) {
-      const matchedVariant = currentProduct.variants.find(
+    if (product.variants && product.variants.length > 0) {
+      const matchedVariant = product.variants.find(
         (v) => (!color || v.color === color) && (!size || v.size === size),
       );
       if (!matchedVariant) {
-        return res
-          .status(400)
-          .json({ message: "Selected variant profile is unavailable." });
+        return res.status(400).json({ message: "Selected variant not found." });
       }
       if (matchedVariant.stock < quantity) {
         return res.status(400).json({
-          message: ` Cannot increase quantity. Only ${matchedVariant.stock} units are left in the warehouse`,
+          message: `Only ${matchedVariant.stock} units available in stock.`,
         });
       }
     } else {
-      if (currentProduct.globalStock < quantity) {
+      if (product.globalStock < quantity) {
         return res.status(400).json({
-          message: ` Cannot increase quantity. Only ${currentProduct.globalStock} units are left in the warehouse`,
+          message: `Only ${product.globalStock} units available in stock.`,
         });
       }
     }
 
     cart.items[itemIndex].quantity = quantity;
-
     await cart.save();
-    return res
-      .status(200)
-      .json({ message: " Cart quantity updated successfully", cart });
+
+    return res.status(200).json({ message: "Cart quantity updated.", cart });
   } catch (error) {
-    console.error("Updating cart quantity error:", error);
-    return res
-      .status(500)
-      .json({ message: " Server error updating cart values" });
+    console.error("Update Cart Quantity Error:", error);
+    return res.status(500).json({ message: "Server error updating cart quantity." });
   }
 };
 
@@ -250,35 +228,29 @@ export const deleteCartItem = async (req, res) => {
 
     const cart = await Cart.findOne({ user: req.user.id });
     if (!cart) {
-      return res.status(404).json({ message: "Shopping cart not found" });
+      return res.status(404).json({ message: "Cart not found." });
     }
 
-    const itemIndex = cart.items.findIndex((item) =>
-      item.product.toString() === productId &&
+    const itemIndex = cart.items.findIndex(
+      (item) =>
+        item.product.toString() === productId &&
         item.selectedVariant?.color === color &&
         item.selectedVariant?.size === size,
     );
 
     if (itemIndex === -1) {
-      return res.status(404).json({ message: "Target item not found in cart" });
+      return res.status(404).json({ message: "Item not found in cart." });
     }
 
     cart.items.splice(itemIndex, 1);
-
     await cart.save();
-    return res
-      .status(200)
-      .json({ message: "Item removed from the cart successfully", cart });
-  } catch (error) {
-    console.error("Remove cart item error", error);
-    if (error.name === "CastError" || error.kind === "ObjectId") {
-      return res
-        .status(400)
-        .json({ message: "Invalid product identifier format." });
-    }
 
-    return res
-      .status(500)
-      .json({ message: "Server error executing item row removal." });
+    return res.status(200).json({ message: "Item removed from cart.", cart });
+  } catch (error) {
+    console.error("Delete Cart Item Error:", error);
+    if (error.name === "CastError") {
+      return res.status(400).json({ message: "Invalid product identifier format." });
+    }
+    return res.status(500).json({ message: "Server error removing cart item." });
   }
 };

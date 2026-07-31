@@ -6,42 +6,31 @@ export const getAllProducts = async (req, res) => {
     const products = await Product.find({ isActive: true });
 
     if (products.length === 0) {
-      return res
-        .status(200)
-        .json({ message: "No products in catalog", products: [] });
+      return res.status(200).json({ message: "No products in catalog.", products: [] });
     }
-    return res.status(200).json({
-      count: products.length,
-      products,
-    });
+
+    return res.status(200).json({ count: products.length, products });
   } catch (error) {
-    console.log("Fetch all products ", error);
-    return res
-      .status(500)
-      .json({ message: "Server error while fetching items" });
+    console.error("Get All Products Error:", error);
+    return res.status(500).json({ message: "Server error fetching products." });
   }
 };
 
 export const getProductById = async (req, res) => {
   try {
-    const productId = req.params.id;
-    const product = await Product.findById(productId);
+    const product = await Product.findById(req.params.id);
 
     if (!product) {
-      return res.status(404).json({ message: "Product not found " });
+      return res.status(404).json({ message: "Product not found." });
     }
+
     return res.status(200).json(product);
   } catch (error) {
-    console.error("Error while fetching product", error);
-
+    console.error("Get Product By ID Error:", error);
     if (error.name === "CastError") {
-      return res.status(400).json({
-        message: "Invalid product ID",
-      });
+      return res.status(400).json({ message: "Invalid product identifier format." });
     }
-    return res
-      .status(500)
-      .json({ message: "Server error while fetching the product" });
+    return res.status(500).json({ message: "Server error fetching product." });
   }
 };
 
@@ -71,21 +60,18 @@ export const createProduct = async (req, res) => {
       images.length === 0
     ) {
       return res.status(400).json({
-        message:
-          "Please fulfill all required fields, including at least one image ",
+        message: "Name, description, basePrice, category, brand, and at least one image are required.",
       });
     }
+
     if (basePrice <= 0) {
-      return res
-        .status(400)
-        .json({ message: "Base Price cannot be 0 or negative" });
+      return res.status(400).json({ message: "Base price must be greater than 0." });
     }
+
     if (variants && variants.length > 0) {
       for (const variant of variants) {
         if (variant.price === undefined || variant.price < 0) {
-          return res
-            .status(400)
-            .json({ message: "Individual variant must have a valid price" });
+          return res.status(400).json({ message: "Each variant must have a valid price." });
         }
       }
     }
@@ -105,45 +91,37 @@ export const createProduct = async (req, res) => {
       isActive: true,
       averageRating: 0,
     });
+
     const savedProduct = await newProduct.save();
-    return res
-      .status(201)
-      .json({ message: "Product created successfully", product: savedProduct });
+    return res.status(201).json({ message: "Product created successfully.", product: savedProduct });
   } catch (error) {
-    console.error("Product creation error", error);
-    return res
-      .status(500)
-      .json({ message: "Server error while creating product" });
+    console.error("Create Product Error:", error);
+    return res.status(500).json({ message: "Server error creating product." });
   }
 };
 
 export const updateProduct = async (req, res) => {
   try {
-    const productId = req.params.id;
     const updates = req.body;
 
     if (updates.basePrice !== undefined && updates.basePrice <= 0) {
-      return res.status(400).json({
-        message: "Operation rejected product price should be greater than 0",
-      });
+      return res.status(400).json({ message: "Base price must be greater than 0." });
     }
 
     const updatedProduct = await Product.findByIdAndUpdate(
-      productId,
+      req.params.id,
       { $set: updates },
       { returnDocument: "after", runValidators: true },
     );
+
     if (!updatedProduct) {
-      return res.status(404).json({
-        message: "Product not found",
-      });
+      return res.status(404).json({ message: "Product not found." });
     }
-    return res.status(200).json({
-      message: "Product updated successfully",
-      product: updatedProduct,
-    });
+
+    return res.status(200).json({ message: "Product updated successfully.", product: updatedProduct });
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    console.error("Update Product Error:", error);
+    return res.status(500).json({ message: "Server error updating product." });
   }
 };
 
@@ -156,73 +134,54 @@ export const updateProductVariantFields = async (req, res) => {
       !mongoose.Types.ObjectId.isValid(productId) ||
       !mongoose.Types.ObjectId.isValid(variantId)
     ) {
-      return res.status(400).json({
-        message: "Malformed identifier parameters parsed.",
-      });
+      return res.status(400).json({ message: "Invalid product or variant identifier format." });
     }
 
     const product = await Product.findById(productId);
     if (!product) {
-      return res.status(404).json({ message: "Product record missing." });
+      return res.status(404).json({ message: "Product not found." });
     }
 
-    const targetVariantCard = product.variants.id(variantId);
-    if (!targetVariantCard) {
-      return res.status(404).json({
-        message: "The chosen variant configuration option was not found.",
-      });
+    const targetVariant = product.variants.id(variantId);
+    if (!targetVariant) {
+      return res.status(404).json({ message: "Variant not found." });
     }
 
     if (price !== undefined) {
       if (Number(price) < 0) {
-        return res.status(400).json({
-          message: "Variant price must be greater than or equal to 0.",
-        });
+        return res.status(400).json({ message: "Variant price must be 0 or greater." });
       }
-      targetVariantCard.price = price;
+      targetVariant.price = price;
     }
 
     if (stock !== undefined) {
       if (Number(stock) < 0) {
-        return res.status(400).json({
-          message: "Variant stock must be greater than or equal to 0.",
-        });
+        return res.status(400).json({ message: "Variant stock must be 0 or greater." });
       }
-      targetVariantCard.stock = stock;
+      targetVariant.stock = stock;
     }
 
     await product.save();
-    return res.status(200).json({
-      message: "Variant adjusted successfully.",
-      product,
-    });
+    return res.status(200).json({ message: "Variant updated successfully.", product });
   } catch (error) {
-    console.error("Variant update failure exception:", error);
-    return res.status(500).json({
-      message: "Server error processing your variants update request.",
-    });
+    console.error("Update Variant Error:", error);
+    return res.status(500).json({ message: "Server error updating variant." });
   }
 };
 
 export const deleteProduct = async (req, res) => {
   try {
-    const productId = req.params.id;
-
-    const product = await Product.findById(productId);
+    const product = await Product.findById(req.params.id);
     if (!product) {
-      return res
-        .status(404)
-        .json({ message: "Target product listing not found" });
+      return res.status(404).json({ message: "Product not found." });
     }
+
     product.isActive = false;
     await product.save();
-    return res.status(200).json({
-      message: "Product deactivated and hidden from store successfully",
-    });
+
+    return res.status(200).json({ message: "Product deactivated successfully." });
   } catch (error) {
-    console.error("Error while deleting the product", error);
-    return res
-      .status(500)
-      .json({ message: "Internal server error while deleting the product" });
+    console.error("Delete Product Error:", error);
+    return res.status(500).json({ message: "Server error deactivating product." });
   }
 };

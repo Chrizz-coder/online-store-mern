@@ -10,40 +10,38 @@ export const validateAndCalculateCart = (cart) => {
   const orderItemsSnapshot = [];
 
   for (let item of cart.items) {
-    const currentProduct = item.product;
+    const product = item.product;
 
-    if (!currentProduct || !currentProduct.isActive) {
-      throw new Error(
-        "Checkout aborted. An item in your cart is no longer available.",
-      );
+    if (!product || !product.isActive) {
+      throw new Error("Checkout aborted. An item in your cart is no longer available.");
     }
 
-    let freshLivePrice = currentProduct.salePrice || currentProduct.basePrice;
+    let freshLivePrice = product.salePrice || product.basePrice;
     const color = item.selectedVariant?.color;
     const size = item.selectedVariant?.size;
 
-    if (currentProduct.variants && currentProduct.variants.length > 0) {
-      const matchedVariant = currentProduct.variants.find(
+    if (product.variants && product.variants.length > 0) {
+      const matchedVariant = product.variants.find(
         (v) => (!color || v.color === color) && (!size || v.size === size),
       );
 
       if (!matchedVariant) {
         throw new Error(
-          `Selected color/size option is unavailable for product: ${currentProduct.name}`,
+          `Selected variant is unavailable for product: ${product.name}`,
         );
       }
 
       if (matchedVariant.stock < item.quantity) {
         throw new Error(
-          `Insufficient stock. Only ${matchedVariant.stock} units are left for ${currentProduct.name}.`,
+          `Insufficient stock. Only ${matchedVariant.stock} units available for ${product.name}.`,
         );
       }
 
       freshLivePrice = matchedVariant.price || freshLivePrice;
     } else {
-      if (currentProduct.globalStock < item.quantity) {
+      if (product.globalStock < item.quantity) {
         throw new Error(
-          `Insufficient stock. Only ${currentProduct.globalStock} units available for ${currentProduct.name}.`,
+          `Insufficient stock. Only ${product.globalStock} units available for ${product.name}.`,
         );
       }
     }
@@ -51,9 +49,9 @@ export const validateAndCalculateCart = (cart) => {
     totalAmount += freshLivePrice * item.quantity;
 
     orderItemsSnapshot.push({
-      product: currentProduct._id,
-      name: currentProduct.name,
-      image: currentProduct.images?.[0] || "",
+      product: product._id,
+      name: product.name,
+      image: product.images?.[0] || "",
       quantity: item.quantity,
       purchasePrice: freshLivePrice,
       selectedVariant: { color, size },
@@ -68,74 +66,27 @@ export const validateAndCalculateCart = (cart) => {
 
 export const proceedToCheckout = async (req, res) => {
   try {
-    const cart = await Cart.findOne({ user: req.user.id }).populate(
-      "items.product",
-    );
+    const cart = await Cart.findOne({ user: req.user.id }).populate("items.product");
 
     if (!cart || cart.items.length === 0) {
-      return res
-        .status(400)
-        .json({ message: "Checkout aborted. Your shopping cart is empty" });
+      return res.status(400).json({ message: "Your cart is empty." });
     }
 
     const { totalAmount, itemsSnapshot } = validateAndCalculateCart(cart);
 
     return res.status(200).json({
-      message: "Checkout summary generated successfully",
+      message: "Checkout summary generated successfully.",
       summary: {
         items: itemsSnapshot,
         totalItemsCount: itemsSnapshot.length,
-        totalAmount: totalAmount,
+        totalAmount,
       },
     });
   } catch (error) {
-    return res.status(400).json({ message: error.message || "Checkout error" });
+    return res.status(400).json({ message: error.message || "Checkout error." });
   }
 };
 
-// export const placeOrderCOD = async (req, res) => {
-//   const session = await mongoose.startSession();
-//   try {
-//     session.startTransaction();
-
-//     const { addressId } = req.body;
-//     const user = await User.findById(req.user.id).session(session);
-//     const cart = await Cart.findOne({ user: req.user.id })
-//       .populate("items.product")
-//       .session(session);
-
-//     if (!cart || cart.items.length === 0) throw new Error("Cart is empty");
-//     const { totalAmount, itemsSnapshot } = validateAndCalculateCart(cart);
-//     const selectedAddress = user.addresses.id(addressId);
-//     const order = await executeOrderFinalization({
-//       user,
-//       itemsSnapshot,
-//       shippingAddress: {
-//         fullName: selectedAddress.fullName,
-//         phone: selectedAddress.phone,
-//         houseBuilding: selectedAddress.houseBuilding,
-//         streetArea: selectedAddress.streetArea,
-//         landmark: selectedAddress.landmark ?? "",
-//         city: selectedAddress.city,
-//         state: selectedAddress.state,
-//         country: selectedAddress.country ?? "India",
-//         pincode: selectedAddress.pincode,
-//       },
-//       totalAmount,
-//       paymentMethod: "COD",
-//       paymentStatus: "pending",
-//       session,
-//     });
-//     await session.commitTransaction();
-//     res.status(201).json({ success: true, orderId: order._id });
-//   } catch (error) {
-//     await session.abortTransaction();
-//     res.status(400).json({ message: error.message });
-//   }
-//   finally{
-//     session.endSession();
-//   }
-// };
 export const placeOrder = async (req, res) => {
   const session = await mongoose.startSession();
   try {
@@ -143,43 +94,37 @@ export const placeOrder = async (req, res) => {
     const { addressId, paymentMethod } = req.body;
 
     if (!paymentMethod || !["COD", "Razorpay"].includes(paymentMethod)) {
-      return res
-        .status(400)
-        .json({ message: "Select a valid payment method[COD or Razorpay]" });
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: "Invalid payment method. Choose COD or Razorpay." });
     }
 
     if (!addressId) {
       await session.abortTransaction();
       session.endSession();
-      return res
-        .status(400)
-        .json({ message: "Shipping address selection identifier is missing" });
+      return res.status(400).json({ message: "Shipping address is required." });
     }
 
     if (!mongoose.Types.ObjectId.isValid(addressId)) {
       await session.abortTransaction();
       session.endSession();
-      return res
-        .status(400)
-        .json({ message: "Invalid address selection identifier format." });
+      return res.status(400).json({ message: "Invalid address identifier format." });
     }
+
     const user = await User.findById(req.user.id).session(session);
     if (!user) {
       await session.abortTransaction();
       session.endSession();
-      return res
-        .status(404)
-        .json({ message: "User profile context data not found." });
+      return res.status(404).json({ message: "User not found." });
     }
 
     const selectedAddress = user.addresses.id(addressId);
     if (!selectedAddress) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(404).json({
-        message: "The chosen address record was not found in your profile.",
-      });
+      return res.status(404).json({ message: "Address not found." });
     }
+
     const cart = await Cart.findOne({ user: req.user.id })
       .populate("items.product")
       .session(session);
@@ -187,9 +132,7 @@ export const placeOrder = async (req, res) => {
     if (!cart || cart.items.length === 0) {
       await session.abortTransaction();
       session.endSession();
-      return res
-        .status(400)
-        .json({ message: "Checkout aborted. Your shopping cart is empty" });
+      return res.status(400).json({ message: "Your cart is empty." });
     }
 
     const { totalAmount, itemsSnapshot } = validateAndCalculateCart(cart);
@@ -208,7 +151,7 @@ export const placeOrder = async (req, res) => {
         country: selectedAddress.country ?? "India",
         pincode: selectedAddress.pincode,
       },
-      totalAmount: totalAmount,
+      totalAmount,
       paymentMethod,
       paymentStatus: "pending",
       orderStatus: "placed",
@@ -222,24 +165,14 @@ export const placeOrder = async (req, res) => {
 
       if (color || size) {
         await Product.updateOne(
-          {
-            _id: item.product,
-            "variants.size": size,
-            "variants.color": color,
-          },
-          {
-            $inc: { "variants.$.stock": -item.quantity },
-          },
+          { _id: item.product, "variants.size": size, "variants.color": color },
+          { $inc: { "variants.$.stock": -item.quantity } },
           { session },
         );
       } else {
         await Product.updateOne(
-          {
-            _id: item.product,
-          },
-          {
-            $inc: { globalStock: -item.quantity },
-          },
+          { _id: item.product },
+          { $inc: { globalStock: -item.quantity } },
           { session },
         );
       }
@@ -249,84 +182,58 @@ export const placeOrder = async (req, res) => {
     cart.cartSubtotal = 0;
     await cart.save({ session });
     await session.commitTransaction();
-    await session.endSession();
+    session.endSession();
+
     return res.status(201).json({
-      message: "Order placed successfully. Inventory updated.",
-
+      message: "Order placed successfully.",
       orderId: savedOrder._id,
-
       orderStatus: savedOrder.orderStatus,
-
       paymentStatus: savedOrder.paymentStatus,
-
       totalAmount: savedOrder.totalAmount,
     });
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    console.error("Error occurred in placeOrder", error);
-    if (error.name === "CastError" || error.kind === "ObjectId") {
-      return res.status(400).json({
-        message:
-          "Malformed identifier variables sent during final purchase steps.",
-      });
+    console.error("Place Order Error:", error);
+    if (error.name === "CastError") {
+      return res.status(400).json({ message: "Invalid identifier format." });
     }
-    return res.status(500).json({
-      message: "Server error finalizing your order checkout pipeline.",
-    });
+    return res.status(500).json({ message: "Server error placing order." });
   }
 };
 
 export const getMyOrders = async (req, res) => {
   try {
-    const orders = await Order.find({ user: req.user.id }).sort({
-      createdAt: -1,
-    });
-    return res.status(200).json({
-      count: orders.length,
-      orders: orders,
-    });
-  } catch (error) {
-    console.error("Error while fetching orders", error);
-    if (error.name === "CastError" || error.kind === "ObjectId") {
-      return res
-        .status(400)
-        .json({ message: "Malformed user identifier parameters encountered." });
-    }
+    const orders = await Order.find({ user: req.user.id }).sort({ createdAt: -1 });
 
-    return res
-      .status(500)
-      .json({ message: "Server error retrieving your purchase history." });
+    return res.status(200).json({ count: orders.length, orders });
+  } catch (error) {
+    console.error("Get My Orders Error:", error);
+    return res.status(500).json({ message: "Server error fetching orders." });
   }
 };
 
 export const getOrderById = async (req, res) => {
   try {
     const { id } = req.params;
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res
-        .status(400)
-        .json({ message: "Invalid order identifier format provided." });
+      return res.status(400).json({ message: "Invalid order identifier format." });
     }
 
     const order = await Order.findById(id);
-
     if (!order) {
-      return res.status(400).json({ message: "Target order not found" });
+      return res.status(404).json({ message: "Order not found." });
     }
 
     if (order.user.toString() !== req.user.id) {
-      return res
-        .status(403)
-        .json({ message: "Access denied. You do not own this order record." });
+      return res.status(403).json({ message: "Access denied. This order does not belong to you." });
     }
 
-    return res.status(200).json({ success: true, order: order });
+    return res.status(200).json({ order });
   } catch (error) {
-    console.error("Fetch Single Order Detail Error:", error);
-    return res
-      .status(500)
-      .json({ message: "Server error retrieving individual order metrics." });
+    console.error("Get Order By ID Error:", error);
+    return res.status(500).json({ message: "Server error fetching order." });
   }
 };
 
@@ -339,34 +246,26 @@ export const cancelOrder = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       await session.abortTransaction();
       session.endSession();
-      return res
-        .status(400)
-        .json({ message: "Invalid order identifier format provided." });
+      return res.status(400).json({ message: "Invalid order identifier format." });
     }
 
     const order = await Order.findById(id).session(session);
     if (!order) {
       await session.abortTransaction();
       session.endSession();
-      return res
-        .status(404)
-        .json({ message: "Target order invoice records not found." });
+      return res.status(404).json({ message: "Order not found." });
     }
 
     if (order.user.toString() !== req.user.id) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(403).json({
-        message: "You are not authorized to access this order.",
-      });
+      return res.status(403).json({ message: "Access denied. This order does not belong to you." });
     }
 
     if (order.orderStatus === "cancelled") {
       await session.abortTransaction();
       session.endSession();
-      return res.status(400).json({
-        message: "Operation rejected. This order is already cancelled.",
-      });
+      return res.status(400).json({ message: "Order is already cancelled." });
     }
 
     const allowedStatuses = ["placed", "processing"];
@@ -374,33 +273,24 @@ export const cancelOrder = async (req, res) => {
       await session.abortTransaction();
       session.endSession();
       return res.status(400).json({
-        message: `Cannot cancel order. Orders that are already ${order.orderStatus} cannot be voided.`,
+        message: `Orders with status "${order.orderStatus}" cannot be cancelled.`,
       });
     }
 
     for (let item of order.items) {
       const color = item.selectedVariant?.color;
       const size = item.selectedVariant?.size;
+
       if (color || size) {
         await Product.updateOne(
-          {
-            _id: item.product,
-            "variants.size": size,
-            "variants.color": color,
-          },
-          {
-            $inc: { "variants.$.stock": item.quantity },
-          },
+          { _id: item.product, "variants.size": size, "variants.color": color },
+          { $inc: { "variants.$.stock": item.quantity } },
           { session },
         );
       } else {
         await Product.updateOne(
-          {
-            _id: item.product,
-          },
-          {
-            $inc: { globalStock: item.quantity },
-          },
+          { _id: item.product },
+          { $inc: { globalStock: item.quantity } },
           { session },
         );
       }
@@ -410,18 +300,14 @@ export const cancelOrder = async (req, res) => {
     await order.save({ session });
     await session.commitTransaction();
     session.endSession();
+
     return res.status(200).json({
-      message:
-        "Order cancelled successfully. Inventory stock has been restored.",
+      message: "Order cancelled successfully. Stock has been restored.",
     });
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-
-    console.error("Order Cancellation Pipeline Failure:", error);
-    return res.status(500).json({
-      message:
-        "Server error executing transaction rollback cancellation loops.",
-    });
+    console.error("Cancel Order Error:", error);
+    return res.status(500).json({ message: "Server error cancelling order." });
   }
 };

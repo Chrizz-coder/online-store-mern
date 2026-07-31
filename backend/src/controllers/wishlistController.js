@@ -1,24 +1,11 @@
 import Wishlist from "../models/wishlistModel.js";
 import Product from "../models/productModel.js";
-import mongoose from "mongoose";
-
-const isObjectId = (value) =>
-  typeof value === "string" && mongoose.Types.ObjectId.isValid(value);
-
-const getRequestedVariantId = ({ variantId, selectedVariant }) =>
-  variantId ?? selectedVariant?.variantId ?? selectedVariant?._id;
-
-const hasVariantAttributes = (selectedVariant) =>
-  selectedVariant &&
-  (Object.hasOwn(selectedVariant, "color") ||
-    Object.hasOwn(selectedVariant, "size"));
-
-const getVariantByAttributes = (variants, selectedVariant) =>
-  variants.find(
-    (variant) =>
-      variant.color === selectedVariant.color &&
-      variant.size === selectedVariant.size,
-  );
+import {
+  isObjectId,
+  getRequestedVariantId,
+  hasVariantAttributes,
+  getVariantByAttributes,
+} from "../utils/variantUtils.js";
 
 export const addToWishlist = async (req, res) => {
   try {
@@ -26,13 +13,13 @@ export const addToWishlist = async (req, res) => {
     if (!productId) {
       return res
         .status(400)
-        .json({ message: "Product identifier parameter is required." });
+        .json({ message: "Product identifier is required." });
     }
 
     if (!isObjectId(productId)) {
       return res
         .status(400)
-        .json({ message: "Invalid product identifier format provided." });
+        .json({ message: "Invalid product identifier format." });
     }
 
     // Clients may send either the parent product id with a variant id, or a
@@ -49,7 +36,7 @@ export const addToWishlist = async (req, res) => {
     if (!product || !product.isActive) {
       return res
         .status(404)
-        .json({ message: "Product not found or is currently unavailable." });
+        .json({ message: "Product not found or currently unavailable." });
     }
 
     const requestedVariantId = getRequestedVariantId({
@@ -61,14 +48,14 @@ export const addToWishlist = async (req, res) => {
       if (!isObjectId(requestedVariantId)) {
         return res
           .status(400)
-          .json({ message: "Invalid variant identifier format provided." });
+          .json({ message: "Invalid variant identifier format." });
       }
 
       const requestedVariant = product.variants.id(requestedVariantId);
       if (!requestedVariant) {
         return res
           .status(400)
-          .json({ message: "The specified variant does not belong to this product." });
+          .json({ message: "Selected variant does not belong to this product." });
       }
       matchedVariant = requestedVariant;
     } else if (!matchedVariant && hasVariantAttributes(selectedVariant)) {
@@ -76,7 +63,7 @@ export const addToWishlist = async (req, res) => {
       if (!matchedVariant) {
         return res
           .status(400)
-          .json({ message: "The specified variant does not belong to this product." });
+          .json({ message: "Selected variant does not belong to this product." });
       }
     }
 
@@ -104,49 +91,47 @@ export const addToWishlist = async (req, res) => {
 
     if (isAlreadyFavorite) {
       return res
-        .status(400)
-        .json({ message: "Product is already present inside your wishlist." });
+        .status(409)
+        .json({ message: "Product is already in your wishlist." });
     }
 
     wishlist.items.push({ product: product._id, selectedVariant: variantToStore });
     await wishlist.save();
+
     return res
       .status(200)
       .json({ message: "Product added to wishlist successfully.", wishlist });
   } catch (error) {
     console.error("Add to Wishlist Error:", error);
-    if (error.name === "CastError" || error.kind === "ObjectId") {
+    if (error.name === "CastError") {
       return res
         .status(400)
-        .json({ message: "Invalid product identifier format provided." });
+        .json({ message: "Invalid product identifier format." });
     }
     return res
       .status(500)
-      .json({ message: "Server error executing wishlist additions." });
+      .json({ message: "Server error adding to wishlist." });
   }
 };
 
 export const getWishlist = async (req, res) => {
   try {
-    let wishlist = await Wishlist.findOne({ user: req.user.id }).populate(
+    const wishlist = await Wishlist.findOne({ user: req.user.id }).populate(
       "items.product",
       "name images basePrice salePrice globalStock variants isActive",
     );
 
     if (!wishlist) {
-      return res.status(200).json({
-        items: [],
-      });
+      return res.status(200).json({ items: [] });
     }
+
     return res.status(200).json({
       count: wishlist.items.length,
       wishlist,
     });
   } catch (error) {
-    console.error("Get Wishlist Viewport Error:", error);
-    return res
-      .status(500)
-      .json({ message: "Server error loading your personalized wishlist." });
+    console.error("Get Wishlist Error:", error);
+    return res.status(500).json({ message: "Server error fetching wishlist." });
   }
 };
 
@@ -156,13 +141,13 @@ export const removeFromWishlist = async (req, res) => {
 
     if (!productId) {
       return res.status(400).json({
-        message: "Product identifier parameter is required.",
+        message: "Product identifier is required.",
       });
     }
 
     if (!isObjectId(productId)) {
       return res.status(400).json({
-        message: "Invalid product identifier format provided.",
+        message: "Invalid product identifier format.",
       });
     }
 
@@ -173,7 +158,7 @@ export const removeFromWishlist = async (req, res) => {
 
     if (requestedVariantId && !isObjectId(requestedVariantId)) {
       return res.status(400).json({
-        message: "Invalid variant identifier format provided.",
+        message: "Invalid variant identifier format.",
       });
     }
 
@@ -181,7 +166,7 @@ export const removeFromWishlist = async (req, res) => {
 
     if (!wishlist) {
       return res.status(404).json({
-        message: "Wishlist records empty.",
+        message: "Wishlist not found.",
       });
     }
 
@@ -200,14 +185,13 @@ export const removeFromWishlist = async (req, res) => {
 
       // Remove only matching variant
       return (
-        item.selectedVariant?.variantId?.toString() !==
-        requestedVariantId
+        item.selectedVariant?.variantId?.toString() !== requestedVariantId
       );
     });
 
     if (wishlist.items.length === originalLength) {
       return res.status(404).json({
-        message: "Target item was not found inside your wishlist.",
+        message: "Item not found in wishlist.",
       });
     }
 
@@ -220,14 +204,14 @@ export const removeFromWishlist = async (req, res) => {
   } catch (error) {
     console.error("Remove Wishlist Error:", error);
 
-    if (error.name === "CastError" || error.kind === "ObjectId") {
+    if (error.name === "CastError") {
       return res.status(400).json({
-        message: "Invalid identifier format provided.",
+        message: "Invalid identifier format.",
       });
     }
 
     return res.status(500).json({
-      message: "Server error executing wishlist removal.",
+      message: "Server error removing from wishlist.",
     });
   }
 };

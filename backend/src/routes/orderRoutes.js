@@ -5,6 +5,7 @@ import {
   placeOrder,
   getMyOrders,
   getOrderById,
+  cancelOrder,
 } from "../controllers/orderController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -16,5 +17,6 @@ router.post("/checkout-summary", proceedToCheckout);
 router.post("/", placeOrder);
 router.get("/myOrders", getMyOrders);
 router.get("/:id", getOrderById);
+router.delete("/:id/cancel", cancelOrder);
 
 export default router;

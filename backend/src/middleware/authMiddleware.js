@@ -3,6 +3,7 @@ import User from "../models/userModel.js";
 
 export const protect = async (req, res, next) => {
   let token;
+
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith("Bearer")
@@ -10,33 +11,31 @@ export const protect = async (req, res, next) => {
     try {
       token = req.headers.authorization.split(" ")[1];
       if (!process.env.JWT_SECRET) {
-        throw new Error("JWT_SECRET not configured");
+        throw new Error("JWT_SECRET not configured.");
       }
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const user = await User.findById(decoded.id).select("-password");
 
       if (!user) {
-        return res.status(401).json({ message: "User no longer exists" });
+        return res.status(401).json({ message: "User no longer exists." });
       }
+
       req.user = user;
       return next();
     } catch (error) {
-      console.error("Token validation error ", error);
-      return res
-        .status(401)
-        .json({ message: "Not authorized ,token validation failed" });
+      console.error("Token validation error:", error);
+      return res.status(401).json({ message: "Not authorized. Token validation failed." });
     }
   }
 
   if (!token) {
-    return res.status(401).json({ message: "Not authorized, no token given" });
+    return res.status(401).json({ message: "Not authorized. No token provided." });
   }
 };
 
-export const adminOnly = async (req, res, next) => {
+export const adminOnly = (req, res, next) => {
   if (req.user && req.user.role === "admin") {
     return next();
-  } else {
-    return res.status(403).json({ message: "Access denied adminOnly" });
   }
+  return res.status(403).json({ message: "Access denied. Admins only." });
 };
