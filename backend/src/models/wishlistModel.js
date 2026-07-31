@@ -7,6 +7,16 @@ const wishlistItemSchema = new mongoose.Schema(
       ref: "Product",
       required: true,
     },
+    // A product can have multiple purchasable variants.  Keep the selected
+    // variant with the wishlist item so the same product in different
+    // configurations is not treated as a duplicate.
+    selectedVariant: {
+      variantId: {
+        type: mongoose.Schema.Types.ObjectId,
+      },
+      color: String,
+      size: String,
+    },
     addedAt: {
       type: Date,
       default: Date.now,
