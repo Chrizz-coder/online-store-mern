@@ -137,9 +137,9 @@ export const placeOrder = async (req, res) => {
 
     const { totalAmount, itemsSnapshot } = validateAndCalculateCart(cart);
 
-    const newOrder = new Order({
-      user: req.user.id,
-      items: itemsSnapshot,
+    const savedOrder = await executeOrderFinalization({
+      user,
+      itemsSnapshot,
       shippingAddress: {
         fullName: selectedAddress.fullName,
         phone: selectedAddress.phone,
@@ -154,33 +154,9 @@ export const placeOrder = async (req, res) => {
       totalAmount,
       paymentMethod,
       paymentStatus: "pending",
-      orderStatus: "placed",
+      session,
     });
 
-    const savedOrder = await newOrder.save({ session });
-
-    for (let item of savedOrder.items) {
-      const color = item.selectedVariant?.color;
-      const size = item.selectedVariant?.size;
-
-      if (color || size) {
-        await Product.updateOne(
-          { _id: item.product, "variants.size": size, "variants.color": color },
-          { $inc: { "variants.$.stock": -item.quantity } },
-          { session },
-        );
-      } else {
-        await Product.updateOne(
-          { _id: item.product },
-          { $inc: { globalStock: -item.quantity } },
-          { session },
-        );
-      }
-    }
-
-    cart.items = [];
-    cart.cartSubtotal = 0;
-    await cart.save({ session });
     await session.commitTransaction();
     session.endSession();
 

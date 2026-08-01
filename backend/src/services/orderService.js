@@ -30,17 +30,39 @@ export const executeOrderFinalization = async ({
     const size = item.selectedVariant?.size;
 
     if (color || size) {
-      await Product.updateOne(
-        { _id: item.product, "variants.color": color, "variants.size": size },
+      const elemMatchQuery = { stock: { $gte: item.quantity } };
+      if (color) elemMatchQuery.color = color;
+      if (size) elemMatchQuery.size = size;
+
+      const updateResult = await Product.updateOne(
+        {
+          _id: item.product,
+          variants: { $elemMatch: elemMatchQuery },
+        },
         { $inc: { "variants.$.stock": -item.quantity } },
         { session },
       );
+
+      if (updateResult.matchedCount === 0) {
+        throw new Error(
+          `Insufficient stock or variant unavailable for product ${item.name}`,
+        );
+      }
     } else {
-      await Product.updateOne(
-        { _id: item.product },
+      const updateResult = await Product.updateOne(
+        {
+          _id: item.product,
+          globalStock: { $gte: item.quantity },
+        },
         { $inc: { globalStock: -item.quantity } },
         { session },
       );
+
+      if (updateResult.matchedCount === 0) {
+        throw new Error(
+          `Insufficient stock for product ${item.name}`,
+        );
+      }
     }
   }
 
