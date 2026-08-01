@@ -1,40 +1,38 @@
 import mongoose from "mongoose";
 import Product from "../models/productModel.js";
+import ApiError from "../utils/ApiError.js";
 
-export const getAllProducts = async (req, res) => {
+export const getAllProducts = async (req, res, next) => {
   try {
     const products = await Product.find({ isActive: true });
 
     if (products.length === 0) {
-      return res.status(200).json({ message: "No products in catalog.", products: [] });
+      return res
+        .status(200)
+        .json({ message: "No products in catalog.", products: [] });
     }
 
     return res.status(200).json({ count: products.length, products });
   } catch (error) {
-    console.error("Get All Products Error:", error);
-    return res.status(500).json({ message: "Server error fetching products." });
+    next(error);
   }
 };
 
-export const getProductById = async (req, res) => {
+export const getProductById = async (req, res, next) => {
   try {
     const product = await Product.findById(req.params.id);
 
     if (!product) {
-      return res.status(404).json({ message: "Product not found." });
+      throw new ApiError(404, "Product not found.");
     }
 
     return res.status(200).json(product);
   } catch (error) {
-    console.error("Get Product By ID Error:", error);
-    if (error.name === "CastError") {
-      return res.status(400).json({ message: "Invalid product identifier format." });
-    }
-    return res.status(500).json({ message: "Server error fetching product." });
+    next(error);
   }
 };
 
-export const createProduct = async (req, res) => {
+export const createProduct = async (req, res, next) => {
   try {
     const {
       name,
@@ -59,19 +57,20 @@ export const createProduct = async (req, res) => {
       !images ||
       images.length === 0
     ) {
-      return res.status(400).json({
-        message: "Name, description, basePrice, category, brand, and at least one image are required.",
-      });
+      throw new ApiError(
+        400,
+        "Name, description, basePrice, category, brand, and at least one image are required.",
+      );
     }
 
     if (basePrice <= 0) {
-      return res.status(400).json({ message: "Base price must be greater than 0." });
+      throw new ApiError(400, "Base price must be greater than 0.");
     }
 
     if (variants && variants.length > 0) {
       for (const variant of variants) {
         if (variant.price === undefined || variant.price < 0) {
-          return res.status(400).json({ message: "Each variant must have a valid price." });
+          throw new ApiError(400, "Each variant must have a valid price.");
         }
       }
     }
@@ -93,19 +92,20 @@ export const createProduct = async (req, res) => {
     });
 
     const savedProduct = await newProduct.save();
-    return res.status(201).json({ message: "Product created successfully.", product: savedProduct });
+    return res
+      .status(201)
+      .json({ message: "Product created successfully.", product: savedProduct });
   } catch (error) {
-    console.error("Create Product Error:", error);
-    return res.status(500).json({ message: "Server error creating product." });
+    next(error);
   }
 };
 
-export const updateProduct = async (req, res) => {
+export const updateProduct = async (req, res, next) => {
   try {
     const updates = req.body;
 
     if (updates.basePrice !== undefined && updates.basePrice <= 0) {
-      return res.status(400).json({ message: "Base price must be greater than 0." });
+      throw new ApiError(400, "Base price must be greater than 0.");
     }
 
     const updatedProduct = await Product.findByIdAndUpdate(
@@ -115,17 +115,18 @@ export const updateProduct = async (req, res) => {
     );
 
     if (!updatedProduct) {
-      return res.status(404).json({ message: "Product not found." });
+      throw new ApiError(404, "Product not found.");
     }
 
-    return res.status(200).json({ message: "Product updated successfully.", product: updatedProduct });
+    return res
+      .status(200)
+      .json({ message: "Product updated successfully.", product: updatedProduct });
   } catch (error) {
-    console.error("Update Product Error:", error);
-    return res.status(500).json({ message: "Server error updating product." });
+    next(error);
   }
 };
 
-export const updateProductVariantFields = async (req, res) => {
+export const updateProductVariantFields = async (req, res, next) => {
   try {
     const { productId, variantId } = req.params;
     const { price, stock } = req.body;
@@ -134,54 +135,59 @@ export const updateProductVariantFields = async (req, res) => {
       !mongoose.Types.ObjectId.isValid(productId) ||
       !mongoose.Types.ObjectId.isValid(variantId)
     ) {
-      return res.status(400).json({ message: "Invalid product or variant identifier format." });
+      throw new ApiError(
+        400,
+        "Invalid product or variant identifier format.",
+      );
     }
 
     const product = await Product.findById(productId);
     if (!product) {
-      return res.status(404).json({ message: "Product not found." });
+      throw new ApiError(404, "Product not found.");
     }
 
     const targetVariant = product.variants.id(variantId);
     if (!targetVariant) {
-      return res.status(404).json({ message: "Variant not found." });
+      throw new ApiError(404, "Variant not found.");
     }
 
     if (price !== undefined) {
       if (Number(price) < 0) {
-        return res.status(400).json({ message: "Variant price must be 0 or greater." });
+        throw new ApiError(400, "Variant price must be 0 or greater.");
       }
       targetVariant.price = price;
     }
 
     if (stock !== undefined) {
       if (Number(stock) < 0) {
-        return res.status(400).json({ message: "Variant stock must be 0 or greater." });
+        throw new ApiError(400, "Variant stock must be 0 or greater.");
       }
       targetVariant.stock = stock;
     }
 
     await product.save();
-    return res.status(200).json({ message: "Variant updated successfully.", product });
+    return res
+      .status(200)
+      .json({ message: "Variant updated successfully.", product });
   } catch (error) {
-    console.error("Update Variant Error:", error);
-    return res.status(500).json({ message: "Server error updating variant." });
+    next(error);
   }
 };
 
-export const deleteProduct = async (req, res) => {
+export const deleteProduct = async (req, res, next) => {
   try {
     const product = await Product.findById(req.params.id);
     if (!product) {
-      return res.status(404).json({ message: "Product not found." });
+      throw new ApiError(404, "Product not found.");
     }
 
     product.isActive = false;
     await product.save();
 
-    return res.status(200).json({ message: "Product deactivated successfully." });
+    return res
+      .status(200)
+      .json({ message: "Product deactivated successfully." });
   } catch (error) {
-    console.error("Delete Product Error:", error);
-    return res.status(500).json({ message: "Server error deactivating product." });
+    next(error);
   }
 };

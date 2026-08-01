@@ -1,13 +1,14 @@
 import Cart from "../models/cartModel.js";
 import Product from "../models/productModel.js";
+import ApiError from "../utils/ApiError.js";
 
-export const addToCart = async (req, res) => {
+export const addToCart = async (req, res, next) => {
   try {
     const { productId, quantity, selectedVariant } = req.body;
     const qty = quantity ?? 1;
 
     if (!Number.isInteger(qty) || qty <= 0) {
-      return res.status(400).json({ message: "Quantity must be a positive integer." });
+      throw new ApiError(400, "Quantity must be a positive integer.");
     }
 
     const color = selectedVariant?.color;
@@ -15,7 +16,7 @@ export const addToCart = async (req, res) => {
 
     const product = await Product.findById(productId);
     if (!product || !product.isActive) {
-      return res.status(404).json({ message: "Product not found or unavailable." });
+      throw new ApiError(404, "Product not found or unavailable.");
     }
 
     let cart = await Cart.findOne({ user: req.user.id });
@@ -39,17 +40,17 @@ export const addToCart = async (req, res) => {
       );
 
       if (!matchedVariant) {
-        return res.status(400).json({ message: "Selected variant not found." });
+        throw new ApiError(400, "Selected variant not found.");
       }
 
       finalItemPrice = matchedVariant.price || finalItemPrice;
 
       if (matchedVariant.stock < existingQtyInCart + qty) {
-        return res.status(400).json({ message: "Insufficient stock for requested quantity." });
+        throw new ApiError(400, "Insufficient stock for requested quantity.");
       }
     } else {
       if (product.globalStock < existingQtyInCart + qty) {
-        return res.status(400).json({ message: "Insufficient stock for requested quantity." });
+        throw new ApiError(400, "Insufficient stock for requested quantity.");
       }
     }
 
@@ -78,15 +79,11 @@ export const addToCart = async (req, res) => {
       cart,
     });
   } catch (error) {
-    console.error("Add to Cart Error:", error);
-    if (error.name === "CastError") {
-      return res.status(400).json({ message: "Invalid product identifier format." });
-    }
-    return res.status(500).json({ message: "Server error adding item to cart." });
+    next(error);
   }
 };
 
-export const viewCart = async (req, res) => {
+export const viewCart = async (req, res, next) => {
   try {
     let cart = await Cart.findOne({ user: req.user.id }).populate("items.product");
     if (!cart) {
@@ -146,12 +143,11 @@ export const viewCart = async (req, res) => {
 
     return res.status(200).json(cart);
   } catch (error) {
-    console.error("View Cart Error:", error);
-    return res.status(500).json({ message: "Server error fetching cart." });
+    next(error);
   }
 };
 
-export const updateCartQuantity = async (req, res) => {
+export const updateCartQuantity = async (req, res, next) => {
   try {
     const { productId } = req.params;
     const { quantity, selectedVariant } = req.body;
@@ -159,12 +155,12 @@ export const updateCartQuantity = async (req, res) => {
     const size = selectedVariant?.size;
 
     if (!Number.isInteger(quantity) || quantity < 0) {
-      return res.status(400).json({ message: "Quantity must be a valid non-negative integer." });
+      throw new ApiError(400, "Quantity must be a valid non-negative integer.");
     }
 
     const cart = await Cart.findOne({ user: req.user.id });
     if (!cart) {
-      return res.status(404).json({ message: "Cart not found." });
+      throw new ApiError(404, "Cart not found.");
     }
 
     const itemIndex = cart.items.findIndex(
@@ -175,12 +171,12 @@ export const updateCartQuantity = async (req, res) => {
     );
 
     if (itemIndex === -1) {
-      return res.status(404).json({ message: "Item not found in cart." });
+      throw new ApiError(404, "Item not found in cart.");
     }
 
     const product = await Product.findById(productId);
     if (!product || !product.isActive) {
-      return res.status(404).json({ message: "Product not found or unavailable." });
+      throw new ApiError(404, "Product not found or unavailable.");
     }
 
     if (quantity === 0) {
@@ -194,18 +190,20 @@ export const updateCartQuantity = async (req, res) => {
         (v) => (!color || v.color === color) && (!size || v.size === size),
       );
       if (!matchedVariant) {
-        return res.status(400).json({ message: "Selected variant not found." });
+        throw new ApiError(400, "Selected variant not found.");
       }
       if (matchedVariant.stock < quantity) {
-        return res.status(400).json({
-          message: `Only ${matchedVariant.stock} units available in stock.`,
-        });
+        throw new ApiError(
+          400,
+          `Only ${matchedVariant.stock} units available in stock.`,
+        );
       }
     } else {
       if (product.globalStock < quantity) {
-        return res.status(400).json({
-          message: `Only ${product.globalStock} units available in stock.`,
-        });
+        throw new ApiError(
+          400,
+          `Only ${product.globalStock} units available in stock.`,
+        );
       }
     }
 
@@ -214,12 +212,11 @@ export const updateCartQuantity = async (req, res) => {
 
     return res.status(200).json({ message: "Cart quantity updated.", cart });
   } catch (error) {
-    console.error("Update Cart Quantity Error:", error);
-    return res.status(500).json({ message: "Server error updating cart quantity." });
+    next(error);
   }
 };
 
-export const deleteCartItem = async (req, res) => {
+export const deleteCartItem = async (req, res, next) => {
   try {
     const { productId } = req.params;
     const { selectedVariant } = req.body;
@@ -228,7 +225,7 @@ export const deleteCartItem = async (req, res) => {
 
     const cart = await Cart.findOne({ user: req.user.id });
     if (!cart) {
-      return res.status(404).json({ message: "Cart not found." });
+      throw new ApiError(404, "Cart not found.");
     }
 
     const itemIndex = cart.items.findIndex(
@@ -239,7 +236,7 @@ export const deleteCartItem = async (req, res) => {
     );
 
     if (itemIndex === -1) {
-      return res.status(404).json({ message: "Item not found in cart." });
+      throw new ApiError(404, "Item not found in cart.");
     }
 
     cart.items.splice(itemIndex, 1);
@@ -247,10 +244,6 @@ export const deleteCartItem = async (req, res) => {
 
     return res.status(200).json({ message: "Item removed from cart.", cart });
   } catch (error) {
-    console.error("Delete Cart Item Error:", error);
-    if (error.name === "CastError") {
-      return res.status(400).json({ message: "Invalid product identifier format." });
-    }
-    return res.status(500).json({ message: "Server error removing cart item." });
+    next(error);
   }
 };

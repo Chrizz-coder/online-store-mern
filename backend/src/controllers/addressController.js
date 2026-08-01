@@ -1,5 +1,6 @@
 import User from "../models/userModel.js";
 import mongoose from "mongoose";
+import ApiError from "../utils/ApiError.js";
 
 const validateAddressFields = (body) => {
   const { fullName, phone, houseBuilding, streetArea, city, state, pincode } =
@@ -18,15 +19,15 @@ const validateAddressFields = (body) => {
   return null;
 };
 
-export const addAddress = async (req, res) => {
+export const addAddress = async (req, res, next) => {
   try {
     const errorMessage = validateAddressFields(req.body);
     if (errorMessage) {
-      return res.status(400).json({ message: errorMessage });
+      throw new ApiError(400, errorMessage);
     }
 
     const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: "User not found." });
+    if (!user) throw new ApiError(404, "User not found.");
 
     const isFirstAddress = user.addresses.length === 0;
 
@@ -55,42 +56,38 @@ export const addAddress = async (req, res) => {
       addresses: user.addresses,
     });
   } catch (error) {
-    console.error("Add Address Error:", error);
-    return res.status(500).json({ message: "Server error adding address." });
+    next(error);
   }
 };
 
-export const getAddresses = async (req, res) => {
+export const getAddresses = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: "User not found." });
+    if (!user) throw new ApiError(404, "User not found.");
 
     return res.status(200).json({
       count: user.addresses.length,
       addresses: user.addresses,
     });
   } catch (error) {
-    console.error("Get Addresses Error:", error);
-    return res.status(500).json({ message: "Server error fetching addresses." });
+    next(error);
   }
 };
 
-export const updateAddresses = async (req, res) => {
+export const updateAddresses = async (req, res, next) => {
   try {
     const { addressId } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(addressId)) {
-      return res
-        .status(400)
-        .json({ message: "Invalid address identifier format." });
+      throw new ApiError(400, "Invalid address identifier format.");
     }
 
     const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: "User not found." });
+    if (!user) throw new ApiError(404, "User not found.");
 
     const addressToUpdate = user.addresses.id(addressId);
     if (!addressToUpdate) {
-      return res.status(404).json({ message: "Address not found." });
+      throw new ApiError(404, "Address not found.");
     }
 
     addressToUpdate.fullName = req.body.fullName ?? addressToUpdate.fullName;
@@ -113,27 +110,24 @@ export const updateAddresses = async (req, res) => {
       addresses: user.addresses,
     });
   } catch (error) {
-    console.error("Update Address Error:", error);
-    return res.status(500).json({ message: "Server error updating address." });
+    next(error);
   }
 };
 
-export const deleteAddress = async (req, res) => {
+export const deleteAddress = async (req, res, next) => {
   try {
     const { addressId } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(addressId)) {
-      return res
-        .status(400)
-        .json({ message: "Invalid address identifier format." });
+      throw new ApiError(400, "Invalid address identifier format.");
     }
 
     const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: "User not found." });
+    if (!user) throw new ApiError(404, "User not found.");
 
     const targetAddress = user.addresses.id(addressId);
     if (!targetAddress) {
-      return res.status(404).json({ message: "Address not found." });
+      throw new ApiError(404, "Address not found.");
     }
 
     const wasDefault = targetAddress.isDefault;
@@ -150,27 +144,24 @@ export const deleteAddress = async (req, res) => {
       addresses: user.addresses,
     });
   } catch (error) {
-    console.error("Delete Address Error:", error);
-    return res.status(500).json({ message: "Server error deleting address." });
+    next(error);
   }
 };
 
-export const defaultAddress = async (req, res) => {
+export const defaultAddress = async (req, res, next) => {
   try {
     const { addressId } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(addressId)) {
-      return res
-        .status(400)
-        .json({ message: "Invalid address identifier format." });
+      throw new ApiError(400, "Invalid address identifier format.");
     }
 
     const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: "User not found." });
+    if (!user) throw new ApiError(404, "User not found.");
 
     const targetAddress = user.addresses.id(addressId);
     if (!targetAddress) {
-      return res.status(404).json({ message: "Address not found." });
+      throw new ApiError(404, "Address not found.");
     }
 
     user.addresses.forEach((address) => {
@@ -185,9 +176,6 @@ export const defaultAddress = async (req, res) => {
       addresses: user.addresses,
     });
   } catch (error) {
-    console.error("Set Default Address Error:", error);
-    return res
-      .status(500)
-      .json({ message: "Server error updating default address." });
+    next(error);
   }
 };

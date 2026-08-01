@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Product from "../models/productModel.js";
 import Order from "../models/orderModel.js";
 import Review from "../models/reviewModel.js";
+import ApiError from "../utils/ApiError.js";
 import {
   isObjectId,
   getRequestedVariantId,
@@ -24,20 +25,19 @@ const updateProductAvgRating = async (productId) => {
   });
 };
 
-export const addReview = async (req, res) => {
+export const addReview = async (req, res, next) => {
   try {
     const { productId, variantId, selectedVariant, rating, comment } = req.body;
 
     if (!productId || !rating || !comment) {
-      return res.status(400).json({
-        message: "Product ID, rating, and comment are required.",
-      });
+      throw new ApiError(400, "Product ID, rating, and comment are required.");
     }
 
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
-      return res.status(400).json({
-        message: "Rating must be an integer between 1 and 5.",
-      });
+      throw new ApiError(
+        400,
+        "Rating must be an integer between 1 and 5.",
+      );
     }
 
     let product = await Product.findById(productId);
@@ -49,9 +49,10 @@ export const addReview = async (req, res) => {
     }
 
     if (!product || !product.isActive) {
-      return res.status(404).json({
-        message: "Product not found or currently unavailable.",
-      });
+      throw new ApiError(
+        404,
+        "Product not found or currently unavailable.",
+      );
     }
 
     const requestedVariantId = getRequestedVariantId({
@@ -61,17 +62,16 @@ export const addReview = async (req, res) => {
 
     if (requestedVariantId) {
       if (!isObjectId(requestedVariantId)) {
-        return res.status(400).json({
-          message: "Invalid variant identifier format.",
-        });
+        throw new ApiError(400, "Invalid variant identifier format.");
       }
 
       const requestedVariant = product.variants.id(requestedVariantId);
 
       if (!requestedVariant) {
-        return res.status(400).json({
-          message: "Selected variant does not belong to this product.",
-        });
+        throw new ApiError(
+          400,
+          "Selected variant does not belong to this product.",
+        );
       }
 
       matchedVariant = requestedVariant;
@@ -79,9 +79,10 @@ export const addReview = async (req, res) => {
       matchedVariant = getVariantByAttributes(product.variants, selectedVariant);
 
       if (!matchedVariant) {
-        return res.status(400).json({
-          message: "Selected variant does not belong to this product.",
-        });
+        throw new ApiError(
+          400,
+          "Selected variant does not belong to this product.",
+        );
       }
     }
 
@@ -108,10 +109,10 @@ export const addReview = async (req, res) => {
     });
 
     if (!purchasedOrder) {
-      return res.status(403).json({
-        message:
-          "Access denied. You can only review products you have purchased.",
-      });
+      throw new ApiError(
+        403,
+        "Access denied. You can only review products you have purchased.",
+      );
     }
 
     const existingReview = await Review.findOne({
@@ -135,9 +136,10 @@ export const addReview = async (req, res) => {
     });
 
     if (existingReview) {
-      return res.status(409).json({
-        message: "You have already reviewed this product variant.",
-      });
+      throw new ApiError(
+        409,
+        "You have already reviewed this product variant.",
+      );
     }
 
     const newReview = new Review({
@@ -161,28 +163,15 @@ export const addReview = async (req, res) => {
       .status(201)
       .json({ message: "Review posted successfully.", review: newReview });
   } catch (error) {
-    console.error("Add Review Error:", error);
-    if (error.code === 11000) {
-      return res.status(409).json({
-        message: "You have already reviewed this product variant.",
-      });
-    }
-    if (error.name === "CastError") {
-      return res.status(400).json({
-        message: "Invalid product identifier format.",
-      });
-    }
-    return res.status(500).json({ message: "Server error adding review." });
+    next(error);
   }
 };
 
-export const getProductReviews = async (req, res) => {
+export const getProductReviews = async (req, res, next) => {
   try {
     const { productId } = req.params;
     if (!mongoose.Types.ObjectId.isValid(productId)) {
-      return res
-        .status(400)
-        .json({ message: "Invalid product identifier format." });
+      throw new ApiError(400, "Invalid product identifier format.");
     }
 
     let targetProductId = productId;
@@ -202,37 +191,36 @@ export const getProductReviews = async (req, res) => {
 
     return res.status(200).json({ count: reviews.length, reviews });
   } catch (error) {
-    console.error("Get Reviews Error:", error);
-    return res.status(500).json({ message: "Server error fetching reviews." });
+    next(error);
   }
 };
 
-export const updateReview = async (req, res) => {
+export const updateReview = async (req, res, next) => {
   try {
     const { reviewId } = req.params;
     const { rating, comment } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(reviewId)) {
-      return res
-        .status(400)
-        .json({ message: "Invalid review identifier format." });
+      throw new ApiError(400, "Invalid review identifier format.");
     }
 
     if (!Number.isInteger(rating) || rating < 1 || rating > 5 || !comment) {
-      return res.status(400).json({
-        message: "Rating must be an integer between 1 and 5, and comment is required.",
-      });
+      throw new ApiError(
+        400,
+        "Rating must be an integer between 1 and 5, and comment is required.",
+      );
     }
 
     const targetReview = await Review.findById(reviewId);
     if (!targetReview) {
-      return res.status(404).json({ message: "Review not found." });
+      throw new ApiError(404, "Review not found.");
     }
 
     if (targetReview.user.toString() !== req.user.id) {
-      return res.status(403).json({
-        message: "Forbidden. You can only edit your own reviews.",
-      });
+      throw new ApiError(
+        403,
+        "Forbidden. You can only edit your own reviews.",
+      );
     }
 
     targetReview.rating = rating;
@@ -245,29 +233,24 @@ export const updateReview = async (req, res) => {
       review: targetReview,
     });
   } catch (error) {
-    console.error("Update Review Error:", error);
-    if (error.name === "CastError") {
-      return res
-        .status(400)
-        .json({ message: "Invalid identifier format." });
-    }
-    return res.status(500).json({ message: "Server error updating review." });
+    next(error);
   }
 };
 
-export const deleteReview = async (req, res) => {
+export const deleteReview = async (req, res, next) => {
   try {
     const { reviewId } = req.params;
 
     const targetReview = await Review.findById(reviewId);
     if (!targetReview) {
-      return res.status(404).json({ message: "Review not found." });
+      throw new ApiError(404, "Review not found.");
     }
 
     if (targetReview.user.toString() !== req.user.id) {
-      return res.status(403).json({
-        message: "Forbidden. You can only delete your own reviews.",
-      });
+      throw new ApiError(
+        403,
+        "Forbidden. You can only delete your own reviews.",
+      );
     }
 
     const productId = targetReview.product;
@@ -278,12 +261,6 @@ export const deleteReview = async (req, res) => {
       .status(200)
       .json({ message: "Review deleted successfully. Ratings recalculated." });
   } catch (error) {
-    console.error("Delete Review Error:", error);
-    if (error.name === "CastError") {
-      return res
-        .status(400)
-        .json({ message: "Invalid identifier format." });
-    }
-    return res.status(500).json({ message: "Server error deleting review." });
+    next(error);
   }
 };

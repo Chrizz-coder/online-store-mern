@@ -1,22 +1,19 @@
 import User from "../models/userModel.js";
 import bcrypt from "bcryptjs";
 import generateToken from "../utils/generateToken.js";
+import ApiError from "../utils/ApiError.js";
 
-export const registerUser = async (req, res) => {
+export const registerUser = async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
 
     if (!name || !email || !password) {
-      return res
-        .status(400)
-        .json({ message: "Name, email, and password are required." });
+      throw new ApiError(400, "Name, email, and password are required.");
     }
 
     const userExists = await User.findOne({ email });
     if (userExists) {
-      return res
-        .status(409)
-        .json({ message: "An account with this email already exists." });
+      throw new ApiError(409, "An account with this email already exists.");
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -38,29 +35,26 @@ export const registerUser = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Registration Error:", error);
-    return res.status(500).json({ message: "Server error during registration." });
+    next(error);
   }
 };
 
-export const loginUser = async (req, res) => {
+export const loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res
-        .status(400)
-        .json({ message: "Email and password are required." });
+      throw new ApiError(400, "Email and password are required.");
     }
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(401).json({ message: "Invalid email or password." });
+      throw new ApiError(401, "Invalid email or password.");
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: "Invalid email or password." });
+      throw new ApiError(401, "Invalid email or password.");
     }
 
     const token = generateToken(user._id, user.role);
@@ -76,7 +70,6 @@ export const loginUser = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Login Error:", error);
-    return res.status(500).json({ message: "Server error during login." });
+    next(error);
   }
 };

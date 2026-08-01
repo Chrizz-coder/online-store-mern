@@ -5,13 +5,16 @@ import User from "../models/userModel.js";
 import mongoose from "mongoose";
 import { validateAndCalculateCart } from "./orderController.js";
 import { executeOrderFinalization } from "../services/orderService.js";
+import ApiError from "../utils/ApiError.js";
 
-export const createPaymentOrder = async (req, res) => {
+export const createPaymentOrder = async (req, res, next) => {
   try {
-    const cart = await Cart.findOne({ user: req.user.id }).populate("items.product");
+    const cart = await Cart.findOne({ user: req.user.id }).populate(
+      "items.product",
+    );
 
     if (!cart || cart.items.length === 0) {
-      return res.status(400).json({ message: "Your cart is empty." });
+      throw new ApiError(400, "Your cart is empty.");
     }
 
     const { totalAmount } = validateAndCalculateCart(cart);
@@ -25,12 +28,11 @@ export const createPaymentOrder = async (req, res) => {
 
     return res.status(200).json({ order: razorpayOrder });
   } catch (error) {
-    console.error("Create Payment Order Error:", error);
-    return res.status(500).json({ message: "Server error creating payment order." });
+    next(error);
   }
 };
 
-export const verifyPayment = async (req, res) => {
+export const verifyPayment = async (req, res, next) => {
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
@@ -42,27 +44,19 @@ export const verifyPayment = async (req, res) => {
     } = req.body;
 
     if (!process.env.RAZORPAY_KEY_SECRET) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(500).json({ message: "Payment configuration error." });
+      throw new ApiError(500, "Payment configuration error.");
     }
 
     if (!addressId) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ message: "Shipping address is required." });
+      throw new ApiError(400, "Shipping address is required.");
     }
 
     if (!mongoose.Types.ObjectId.isValid(addressId)) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ message: "Invalid address identifier format." });
+      throw new ApiError(400, "Invalid address identifier format.");
     }
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ message: "Missing payment details." });
+      throw new ApiError(400, "Missing payment details.");
     }
 
     const body = razorpay_order_id + "|" + razorpay_payment_id;
@@ -72,16 +66,12 @@ export const verifyPayment = async (req, res) => {
       .digest("hex");
 
     if (expectedSignature !== razorpay_signature) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ message: "Payment signature verification failed." });
+      throw new ApiError(400, "Payment signature verification failed.");
     }
 
     const user = await User.findById(req.user.id).session(session);
     if (!user) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({ message: "User not found." });
+      throw new ApiError(404, "User not found.");
     }
 
     const cart = await Cart.findOne({ user: req.user.id })
@@ -89,16 +79,12 @@ export const verifyPayment = async (req, res) => {
       .session(session);
 
     if (!cart || cart.items.length === 0) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ message: "Your cart is empty." });
+      throw new ApiError(400, "Your cart is empty.");
     }
 
     const selectedAddress = user.addresses.id(addressId);
     if (!selectedAddress) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({ message: "Address not found." });
+      throw new ApiError(404, "Address not found.");
     }
 
     const { totalAmount, itemsSnapshot } = validateAndCalculateCart(cart);
@@ -130,11 +116,12 @@ export const verifyPayment = async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
-    return res.status(200).json({ message: "Payment verified successfully.", orderId: order._id });
+    return res
+      .status(200)
+      .json({ message: "Payment verified successfully.", orderId: order._id });
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    console.error("Verify Payment Error:", error);
-    return res.status(500).json({ message: "Server error verifying payment." });
+    next(error);
   }
 };

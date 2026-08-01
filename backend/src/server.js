@@ -10,6 +10,7 @@ import orderRoutes from "./routes/orderRoutes.js";
 import addressRoute from "./routes/addressRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js"
 import cors from "cors";
+import { errorHandler, notFound } from "./middleware/errorMiddleware.js";
 
 dotenv.config();
 const app = express();
@@ -24,12 +25,15 @@ app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/payment",paymentRoutes)
 
-connectDB();
-const port = process.env.PORT || 5000;
-
 app.get("/", (req, res) => {
   res.send("Hello World");
 });
+
+app.use(notFound);
+app.use(errorHandler);
+
+connectDB();
+const port = process.env.PORT || 5000;
 
 app.listen(port, () => {
   console.log(`Server started, running on port ${port}`);
