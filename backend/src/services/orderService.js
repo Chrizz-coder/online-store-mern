@@ -9,6 +9,7 @@ export const executeOrderFinalization = async ({
   totalAmount,
   paymentMethod,
   paymentStatus,
+  orderStatus = "placed",
   razorpayDetails = {},
   session,
 }) => {
@@ -19,7 +20,7 @@ export const executeOrderFinalization = async ({
     totalAmount,
     paymentMethod,
     paymentStatus,
-    orderStatus: "placed",
+    orderStatus,
     ...razorpayDetails,
   });
 
