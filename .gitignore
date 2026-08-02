@@ -2,11 +2,17 @@ notes/
 # Dependencies
 node_modules/
 
-# Environment
+# Environment & Secrets
 .env
 .env.*
+*.env
+*.env.*
+**/.env
+**/.env.*
 
+# Allow env templates
 !.env.example
+!**/.env.example
 
 # Logs
 *.log

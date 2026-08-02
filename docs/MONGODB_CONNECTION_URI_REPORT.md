@@ -71,9 +71,9 @@ export default connectDB;
 Updated to specify `MONGODB_URI` as primary, alongside `MONGODB_URL` and legacy `MOGODB_URL`:
 ```env
 PORT = 3000
-MONGODB_URI = mongodb+srv://christinmp07_db_user:mxq4R1RaHpuUeqc2@cluster0.tcsti2e.mongodb.net
-MONGODB_URL = mongodb+srv://christinmp07_db_user:mxq4R1RaHpuUeqc2@cluster0.tcsti2e.mongodb.net
-MOGODB_URL = mongodb+srv://christinmp07_db_user:mxq4R1RaHpuUeqc2@cluster0.tcsti2e.mongodb.net
+MONGODB_URI = mongodb+srv://<username>:<password>@<cluster>.mongodb.net
+MONGODB_URL = mongodb+srv://<username>:<password>@<cluster>.mongodb.net
+MOGODB_URL = mongodb+srv://<username>:<password>@<cluster>.mongodb.net
 ...
 ```
 

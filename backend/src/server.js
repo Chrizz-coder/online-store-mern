@@ -1,5 +1,6 @@
+import "dotenv/config";
 import express from "express";
-import dotenv from "dotenv";
+import helmet from "helmet";
 import connectDB from "./config/db.js";
 import userRoutes from "./routes/authRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
@@ -8,12 +9,28 @@ import reviewRoutes from "./routes/reviewRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import addressRoute from "./routes/addressRoutes.js";
-import paymentRoutes from "./routes/paymentRoutes.js"
+import paymentRoutes from "./routes/paymentRoutes.js";
 import cors from "cors";
 import { errorHandler, notFound } from "./middleware/errorMiddleware.js";
 
-dotenv.config();
 const app = express();
+
+// Security HTTP headers
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "https://checkout.razorpay.com"],
+        frameSrc: ["'self'", "https://api.razorpay.com", "https://checkout.razorpay.com"],
+        connectSrc: ["'self'", "https://api.razorpay.com"],
+        imgSrc: ["'self'", "data:", "blob:", "https://res.cloudinary.com"],
+        objectSrc: ["'none'"],
+      },
+    },
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 app.use(cors());
 app.use(express.json());
 app.use("/api/user", userRoutes);
