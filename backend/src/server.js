@@ -12,10 +12,14 @@ import addressRoute from "./routes/addressRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import cors from "cors";
 import { errorHandler, notFound } from "./middleware/errorMiddleware.js";
+import { globalLimiter } from "./middleware/rateLimitMiddleware.js";
 
 const app = express();
 
-// Security HTTP headers
+// Required for express-rate-limit to correctly read the client IP when running
+// behind a reverse proxy (Nginx, Render, Railway, Vercel, etc.).
+app.set("trust proxy", 1);
+
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -31,7 +35,7 @@ app.use(
     crossOriginResourcePolicy: { policy: "cross-origin" },
   })
 );
-// Production-ready CORS configuration
+
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
@@ -40,7 +44,7 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no Origin header (Postman, cURL, server-to-server, Razorpay webhooks)
+    // No Origin header = Postman, cURL, server-to-server calls, Razorpay webhooks — allow.
     if (!origin || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
@@ -53,7 +57,9 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.use("/api", globalLimiter);
 app.use(express.json());
+
 app.use("/api/user", userRoutes);
 app.use("/api/user/address", addressRoute);
 app.use("/api/products", productRoutes);
@@ -61,7 +67,7 @@ app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/review", reviewRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
-app.use("/api/payment",paymentRoutes)
+app.use("/api/payment", paymentRoutes);
 
 app.get("/", (req, res) => {
   res.send("Hello World");

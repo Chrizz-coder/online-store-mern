@@ -8,20 +8,21 @@ import {
   updateProduct,
 } from "../controllers/productController.js";
 import { adminOnly, protect } from "../middleware/authMiddleware.js";
-import Product from "../models/productModel.js";
+import { searchLimiter, adminLimiter } from "../middleware/rateLimitMiddleware.js";
 
 const router = express.Router();
 
-router.get("/", getAllProducts);
-router.get("/:id", getProductById);
+router.get("/", searchLimiter, getAllProducts);
+router.get("/:id", searchLimiter, getProductById);
 
-router.post("/", protect, adminOnly, createProduct);
-router.put("/:id", protect, adminOnly, updateProduct);
+router.post("/", protect, adminOnly, adminLimiter, createProduct);
+router.put("/:id", protect, adminOnly, adminLimiter, updateProduct);
 router.patch(
   "/:productId/variants/:variantId",
   protect,
   adminOnly,
+  adminLimiter,
   updateProductVariantFields,
 );
-router.delete("/:id", protect, adminOnly, deleteProduct);
+router.delete("/:id", protect, adminOnly, adminLimiter, deleteProduct);
 export default router;
