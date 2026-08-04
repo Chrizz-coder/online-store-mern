@@ -9,6 +9,7 @@ import {
   hasVariantAttributes,
   getVariantByAttributes,
 } from "../utils/variantUtils.js";
+import { requireString, requireInteger, requireObjectId } from "../utils/validators.js";
 
 const updateProductAvgRating = async (productId) => {
   const reviews = await Review.find({ product: productId });
@@ -28,6 +29,11 @@ const updateProductAvgRating = async (productId) => {
 export const addReview = async (req, res, next) => {
   try {
     const { productId, variantId, selectedVariant, rating, comment } = req.body;
+
+    requireObjectId(productId, "Product ID");
+    requireInteger(rating, "Rating");
+    requireString(comment, "Comment");
+    if (variantId !== undefined) requireObjectId(variantId, "Variant ID");
 
     if (!productId || !rating || !comment) {
       throw new ApiError(400, "Product ID, rating, and comment are required.");
@@ -199,6 +205,9 @@ export const updateReview = async (req, res, next) => {
   try {
     const { reviewId } = req.params;
     const { rating, comment } = req.body;
+
+    requireInteger(rating, "Rating");
+    requireString(comment, "Comment");
 
     if (!mongoose.Types.ObjectId.isValid(reviewId)) {
       throw new ApiError(400, "Invalid review identifier format.");

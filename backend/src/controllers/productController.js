@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Product from "../models/productModel.js";
 import ApiError from "../utils/ApiError.js";
+import { requireString, requireNumber } from "../utils/validators.js";
 
 export const getAllProducts = async (req, res, next) => {
   try {
@@ -47,6 +48,14 @@ export const createProduct = async (req, res, next) => {
       variants,
       globalStock,
     } = req.body;
+
+    requireString(name, "Name");
+    requireString(description, "Description");
+    requireNumber(basePrice, "Base price");
+    requireNumber(salePrice, "Sale price");
+    requireString(category, "Category");
+    requireString(subCategory, "Sub-category");
+    requireString(brand, "Brand");
 
     if (
       !name ||
@@ -103,6 +112,13 @@ export const createProduct = async (req, res, next) => {
 export const updateProduct = async (req, res, next) => {
   try {
     const updates = req.body;
+
+    if (updates.name !== undefined) requireString(updates.name, "Name");
+    if (updates.description !== undefined) requireString(updates.description, "Description");
+    if (updates.basePrice !== undefined) requireNumber(updates.basePrice, "Base price");
+    if (updates.salePrice !== undefined) requireNumber(updates.salePrice, "Sale price");
+    if (updates.category !== undefined) requireString(updates.category, "Category");
+    if (updates.brand !== undefined) requireString(updates.brand, "Brand");
 
     if (updates.basePrice !== undefined && updates.basePrice <= 0) {
       throw new ApiError(400, "Base price must be greater than 0.");

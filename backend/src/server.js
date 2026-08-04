@@ -13,6 +13,7 @@ import paymentRoutes from "./routes/paymentRoutes.js";
 import cors from "cors";
 import { errorHandler, notFound } from "./middleware/errorMiddleware.js";
 import { globalLimiter } from "./middleware/rateLimitMiddleware.js";
+import mongoSanitize from "express-mongo-sanitize";
 
 const app = express();
 
@@ -59,6 +60,8 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use("/api", globalLimiter);
 app.use(express.json());
+// Strip $ and . keys from req.body/query/params before any route handler.
+app.use(mongoSanitize());
 
 app.use("/api/user", userRoutes);
 app.use("/api/user/address", addressRoute);

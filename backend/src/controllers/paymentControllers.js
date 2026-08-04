@@ -6,6 +6,7 @@ import mongoose from "mongoose";
 import { validateAndCalculateCart } from "./orderController.js";
 import { executeOrderFinalization } from "../services/orderService.js";
 import ApiError from "../utils/ApiError.js";
+import { requireString, requireObjectId } from "../utils/validators.js";
 
 export const createPaymentOrder = async (req, res, next) => {
   try {
@@ -42,6 +43,11 @@ export const verifyPayment = async (req, res, next) => {
       razorpay_signature,
       addressId,
     } = req.body;
+
+    requireString(razorpay_order_id, "Razorpay order ID");
+    requireString(razorpay_payment_id, "Razorpay payment ID");
+    requireString(razorpay_signature, "Razorpay signature");
+    requireObjectId(addressId, "Address ID");
 
     if (!process.env.RAZORPAY_KEY_SECRET) {
       throw new ApiError(500, "Payment configuration error.");

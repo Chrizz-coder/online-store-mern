@@ -7,6 +7,7 @@ import {
   hasVariantAttributes,
   getVariantByAttributes,
 } from "../utils/variantUtils.js";
+import { requireObjectId } from "../utils/validators.js";
 
 export const addToWishlist = async (req, res, next) => {
   try {
@@ -14,6 +15,9 @@ export const addToWishlist = async (req, res, next) => {
     if (!productId) {
       throw new ApiError(400, "Product identifier is required.");
     }
+
+    requireObjectId(productId, "Product ID");
+    if (variantId !== undefined) requireObjectId(variantId, "Variant ID");
 
     if (!isObjectId(productId)) {
       throw new ApiError(400, "Invalid product identifier format.");
@@ -124,6 +128,9 @@ export const removeFromWishlist = async (req, res, next) => {
     if (!productId) {
       throw new ApiError(400, "Product identifier is required.");
     }
+
+    requireObjectId(productId, "Product ID");
+    if (variantId !== undefined) requireObjectId(variantId, "Variant ID");
 
     if (!isObjectId(productId)) {
       throw new ApiError(400, "Invalid product identifier format.");

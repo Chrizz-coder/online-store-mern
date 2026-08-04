@@ -5,6 +5,7 @@ import User from "../models/userModel.js";
 import { executeOrderFinalization } from "../services/orderService.js";
 import mongoose from "mongoose";
 import ApiError from "../utils/ApiError.js";
+import { requireObjectId } from "../utils/validators.js";
 
 export const validateAndCalculateCart = (cart) => {
   let totalAmount = 0;
@@ -112,6 +113,8 @@ export const placeOrder = async (req, res, next) => {
     if (!addressId) {
       throw new ApiError(400, "Shipping address is required.");
     }
+
+    requireObjectId(addressId, "Address ID");
 
     if (!mongoose.Types.ObjectId.isValid(addressId)) {
       throw new ApiError(400, "Invalid address identifier format.");

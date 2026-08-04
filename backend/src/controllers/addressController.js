@@ -1,6 +1,22 @@
 import User from "../models/userModel.js";
 import mongoose from "mongoose";
 import ApiError from "../utils/ApiError.js";
+import { requireString } from "../utils/validators.js";
+
+// Validates primitive types for all address text fields.
+// Runs before the presence checks so objects/arrays are rejected early.
+const requireAddressTypes = (body) => {
+  requireString(body.fullName, "Full name");
+  requireString(body.phone, "Phone");
+  requireString(body.houseBuilding, "House/building");
+  requireString(body.streetArea, "Street/area");
+  requireString(body.landmark, "Landmark");
+  requireString(body.city, "City");
+  requireString(body.state, "State");
+  requireString(body.country, "Country");
+  requireString(body.pincode, "Pincode");
+  requireString(body.addressType, "Address type");
+};
 
 const validateAddressFields = (body) => {
   const { fullName, phone, houseBuilding, streetArea, city, state, pincode } =
@@ -21,6 +37,7 @@ const validateAddressFields = (body) => {
 
 export const addAddress = async (req, res, next) => {
   try {
+    requireAddressTypes(req.body);
     const errorMessage = validateAddressFields(req.body);
     if (errorMessage) {
       throw new ApiError(400, errorMessage);
@@ -89,6 +106,8 @@ export const updateAddresses = async (req, res, next) => {
     if (!addressToUpdate) {
       throw new ApiError(404, "Address not found.");
     }
+
+    requireAddressTypes(req.body);
 
     addressToUpdate.fullName = req.body.fullName ?? addressToUpdate.fullName;
     addressToUpdate.phone = req.body.phone ?? addressToUpdate.phone;

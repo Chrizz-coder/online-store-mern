@@ -2,10 +2,15 @@ import User from "../models/userModel.js";
 import bcrypt from "bcryptjs";
 import generateToken from "../utils/generateToken.js";
 import ApiError from "../utils/ApiError.js";
+import { requireString } from "../utils/validators.js";
 
 export const registerUser = async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
+
+    requireString(name, "Name");
+    requireString(email, "Email");
+    requireString(password, "Password");
 
     if (!name || !email || !password) {
       throw new ApiError(400, "Name, email, and password are required.");
@@ -42,6 +47,9 @@ export const registerUser = async (req, res, next) => {
 export const loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+
+    requireString(email, "Email");
+    requireString(password, "Password");
 
     if (!email || !password) {
       throw new ApiError(400, "Email and password are required.");

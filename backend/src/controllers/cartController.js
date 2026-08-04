@@ -1,11 +1,21 @@
 import Cart from "../models/cartModel.js";
 import Product from "../models/productModel.js";
 import ApiError from "../utils/ApiError.js";
+import { requireObjectId, requireInteger, requireString } from "../utils/validators.js";
 
 export const addToCart = async (req, res, next) => {
   try {
     const { productId, quantity, selectedVariant } = req.body;
     const qty = quantity ?? 1;
+
+    requireObjectId(productId, "Product ID");
+    requireInteger(qty, "Quantity");
+
+    const color = selectedVariant?.color;
+    const size = selectedVariant?.size;
+
+    requireString(color, "Color");
+    requireString(size, "Size");
 
     if (!Number.isInteger(qty) || qty <= 0) {
       throw new ApiError(400, "Quantity must be a positive integer.");
@@ -154,6 +164,10 @@ export const updateCartQuantity = async (req, res, next) => {
     const color = selectedVariant?.color;
     const size = selectedVariant?.size;
 
+    requireInteger(quantity, "Quantity");
+    requireString(color, "Color");
+    requireString(size, "Size");
+
     if (!Number.isInteger(quantity) || quantity < 0) {
       throw new ApiError(400, "Quantity must be a valid non-negative integer.");
     }
@@ -222,6 +236,9 @@ export const deleteCartItem = async (req, res, next) => {
     const { selectedVariant } = req.body;
     const color = selectedVariant?.color;
     const size = selectedVariant?.size;
+
+    requireString(color, "Color");
+    requireString(size, "Size");
 
     const cart = await Cart.findOne({ user: req.user.id });
     if (!cart) {

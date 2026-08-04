@@ -7,13 +7,14 @@ import {
 } from "../controllers/reviewController.js";
 
 import { protect } from "../middleware/authMiddleware.js";
+import { reviewLimiter } from "../middleware/rateLimitMiddleware.js";
 
 const router = express.Router();
 router.get("/:productId", getProductReviews);
 
 router.use(protect);
 
-router.post("/", addReview);
+router.post("/", reviewLimiter, addReview);
 router.put("/:reviewId", updateReview);
 router.delete("/:reviewId", deleteReview);
 
