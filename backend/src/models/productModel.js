@@ -93,6 +93,16 @@ productSchema.pre("save", function () {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
 });
+
+// Unique sparse index: sparse because pre-existing docs may have null slug.
+// Enables fast SEO URL lookups and enforces slug uniqueness at DB level.
+productSchema.index({ slug: 1 }, { unique: true, sparse: true });
+
+// Compound index following the ESR rule (Equality first).
+// Serves: Product.find({ isActive: true }) — uses leftmost prefix.
+// Serves: Product.find({ isActive: true, category: x }) — uses both fields.
+productSchema.index({ isActive: 1, category: 1 });
+
 const Product = mongoose.model("Product", productSchema);
 
 export default Product;
