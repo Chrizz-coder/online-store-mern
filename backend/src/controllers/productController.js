@@ -5,15 +5,93 @@ import { requireString, requireNumber } from "../utils/validators.js";
 
 export const getAllProducts = async (req, res, next) => {
   try {
-    const products = await Product.find({ isActive: true });
+    // --- Pagination ---
+    let page = 1;
+    let limit = 20;
 
-    if (products.length === 0) {
-      return res
-        .status(200)
-        .json({ message: "No products in catalog.", products: [] });
+    if (req.query.page !== undefined) {
+      page = parseInt(req.query.page);
+      if (isNaN(page) || page < 1) {
+        throw new ApiError(400, "page must be a positive integer.");
+      }
     }
 
-    return res.status(200).json({ count: products.length, products });
+    if (req.query.limit !== undefined) {
+      limit = parseInt(req.query.limit);
+      if (isNaN(limit) || limit < 1) {
+        throw new ApiError(400, "limit must be a positive integer.");
+      }
+      limit = Math.min(limit, 100);
+    }
+
+    const skip = (page - 1) * limit;
+
+    // --- Numeric filter validation ---
+    let minPrice, maxPrice, rating;
+
+    if (req.query.minPrice !== undefined) {
+      minPrice = Number(req.query.minPrice);
+      if (isNaN(minPrice)) throw new ApiError(400, "minPrice must be a number.");
+    }
+    if (req.query.maxPrice !== undefined) {
+      maxPrice = Number(req.query.maxPrice);
+      if (isNaN(maxPrice)) throw new ApiError(400, "maxPrice must be a number.");
+    }
+    if (req.query.rating !== undefined) {
+      rating = Number(req.query.rating);
+      if (isNaN(rating)) throw new ApiError(400, "rating must be a number.");
+    }
+
+    // --- Build filter ---
+    const filter = { isActive: true };
+
+    if (req.query.q) {
+      filter.$text = { $search: req.query.q };
+    }
+    if (req.query.category) {
+      filter.category = req.query.category;
+    }
+    if (req.query.brand) {
+      filter.brand = new RegExp(req.query.brand, "i");
+    }
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      filter.basePrice = {};
+      if (minPrice !== undefined) filter.basePrice.$gte = minPrice;
+      if (maxPrice !== undefined) filter.basePrice.$lte = maxPrice;
+    }
+    if (rating !== undefined) {
+      filter.averageRating = { $gte: rating };
+    }
+
+    // --- Sort ---
+    const sortMap = {
+      "price-asc":   { basePrice: 1 },
+      "price-desc":  { basePrice: -1 },
+      "rating-desc": { averageRating: -1 },
+      "newest":      { createdAt: -1 },
+    };
+
+    // Text search: sort by relevance score; otherwise use ?sort or default newest.
+    const isTextSearch = Boolean(req.query.q);
+    const sort = isTextSearch
+      ? { score: { $meta: "textScore" } }
+      : (sortMap[req.query.sort] ?? { createdAt: -1 });
+
+    const projection = isTextSearch ? { score: { $meta: "textScore" } } : {};
+
+    // --- Parallel execution ---
+    const [products, total] = await Promise.all([
+      Product.find(filter, projection).sort(sort).skip(skip).limit(limit),
+      Product.countDocuments(filter),
+    ]);
+
+    return res.status(200).json({
+      count: products.length,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+      products,
+    });
   } catch (error) {
     next(error);
   }

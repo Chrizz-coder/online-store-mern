@@ -103,6 +103,24 @@ productSchema.index({ slug: 1 }, { unique: true, sparse: true });
 // Serves: Product.find({ isActive: true, category: x }) — uses both fields.
 productSchema.index({ isActive: 1, category: 1 });
 
+// Multi-field text index for full-text search via ?q=
+// Weights control relevance ranking: higher weight = higher rank when matched.
+// MongoDB allows only ONE text index per collection — all searchable fields
+// must be declared here.
+productSchema.index(
+  {
+    name: "text",
+    description: "text",
+    brand: "text",
+    tags: "text",
+  },
+  {
+    weights: { name: 10, brand: 5, tags: 3, description: 1 },
+    name: "product_text_index",
+  },
+);
+
+
 const Product = mongoose.model("Product", productSchema);
 
 export default Product;
