@@ -12,18 +12,15 @@ import {
 import { requireString, requireInteger, requireObjectId } from "../utils/validators.js";
 
 const updateProductAvgRating = async (productId) => {
-  const reviews = await Review.find({ product: productId });
-  if (reviews.length === 0) {
-    await Product.findByIdAndUpdate(productId, { averageRating: 0 });
-    return;
-  }
-  const sumOfRating = reviews.reduce((total, r) => total + r.rating, 0);
-  const calculatedAvgRating = parseFloat(
-    (sumOfRating / reviews.length).toFixed(2),
-  );
-  await Product.findByIdAndUpdate(productId, {
-    averageRating: calculatedAvgRating,
-  });
+  const result = await Review.aggregate([
+    { $match: { product: new mongoose.Types.ObjectId(productId) } },
+    { $group: { _id: null, averageRating: { $avg: "$rating" } } },
+  ]);
+
+  const averageRating =
+    result.length > 0 ? parseFloat(result[0].averageRating.toFixed(2)) : 0;
+
+  await Product.findByIdAndUpdate(productId, { averageRating });
 };
 
 export const addReview = async (req, res, next) => {
