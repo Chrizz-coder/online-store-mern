@@ -7,6 +7,7 @@ import { validateAndCalculateCart } from "./orderController.js";
 import { executeOrderFinalization } from "../services/orderService.js";
 import ApiError from "../utils/ApiError.js";
 import { requireString, requireObjectId } from "../utils/validators.js";
+import env from "../config/env.js";
 
 export const createPaymentOrder = async (req, res, next) => {
   try {
@@ -49,7 +50,7 @@ export const verifyPayment = async (req, res, next) => {
     requireString(razorpay_signature, "Razorpay signature");
     requireObjectId(addressId, "Address ID");
 
-    if (!process.env.RAZORPAY_KEY_SECRET) {
+    if (!env.RAZORPAY_KEY_SECRET) {
       throw new ApiError(500, "Payment configuration error.");
     }
 
@@ -67,7 +68,7 @@ export const verifyPayment = async (req, res, next) => {
 
     const body = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .createHmac("sha256", env.RAZORPAY_KEY_SECRET)
       .update(body)
       .digest("hex");
 

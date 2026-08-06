@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/userModel.js";
 import ApiError from "../utils/ApiError.js";
+import env from "../config/env.js";
 
 export const protect = async (req, res, next) => {
   let token;
@@ -11,10 +12,7 @@ export const protect = async (req, res, next) => {
   ) {
     try {
       token = req.headers.authorization.split(" ")[1];
-      if (!process.env.JWT_SECRET) {
-        throw new ApiError(500, "JWT_SECRET not configured.");
-      }
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, env.JWT_SECRET);
       const user = await User.findById(decoded.id).select("-password");
 
       if (!user) {
