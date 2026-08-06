@@ -31,7 +31,7 @@ const logger = pinoHttp({
       return {
         method: req.method,
         url: req.url,
-        ip: req.socket.remoteAddress,
+        ip: req.remoteAddress,
       };
     },
   },
@@ -92,6 +92,15 @@ app.use(
     },
   }),
 );
+
+app.get("/health", (req, res) => {
+  const isConnected = mongoose.connection.readyState === 1;
+  return res.status(isConnected ? 200 : 503).json({
+    status: isConnected ? "OK" : "ERROR",
+    database: isConnected ? "Connected" : "Disconnected",
+    uptime: process.uptime(),
+  });
+});
 
 app.use("/api", globalLimiter);
 app.use(express.json());
