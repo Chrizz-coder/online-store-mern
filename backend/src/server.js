@@ -15,6 +15,8 @@ import { errorHandler, notFound } from "./middleware/errorMiddleware.js";
 import { globalLimiter } from "./middleware/rateLimitMiddleware.js";
 import mongoSanitize from "express-mongo-sanitize";
 import pinoHttp from "pino-http";
+import compression from "compression";
+import mongoose from "mongoose";
 
 const isDev = process.env.NODE_ENV !== "production";
 
@@ -79,6 +81,18 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
+app.use(
+  compression({
+    threshold: 1024,
+    level: 6,
+    filter(req, res) {
+      if (req.headers["x-no-compression"]) return false;
+      return compression.filter(req, res);
+    },
+  }),
+);
+
 app.use("/api", globalLimiter);
 app.use(express.json());
 // Strip $ and . keys from req.body/query/params before any route handler.
@@ -103,6 +117,30 @@ app.use(errorHandler);
 connectDB();
 const port = process.env.PORT || 5000;
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`Server started, running on port ${port}`);
 });
+
+const shutdown = (signal) => {
+  console.log(`${signal} received — starting graceful shutdown`);
+
+  const timeout = setTimeout(() => {
+    console.error("Graceful shutdown timed out — forcing exit");
+    process.exit(1);
+  }, 10_000).unref();
+
+  server.close(async () => {
+    try {
+      await mongoose.connection.close();
+      console.log("MongoDB connection closed");
+      clearTimeout(timeout);
+      process.exit(0);
+    } catch (err) {
+      console.error("Error during shutdown:", err);
+      process.exit(1);
+    }
+  });
+};
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT",  () => shutdown("SIGINT"));
