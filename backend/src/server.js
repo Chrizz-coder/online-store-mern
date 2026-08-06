@@ -14,12 +14,33 @@ import cors from "cors";
 import { errorHandler, notFound } from "./middleware/errorMiddleware.js";
 import { globalLimiter } from "./middleware/rateLimitMiddleware.js";
 import mongoSanitize from "express-mongo-sanitize";
+import pinoHttp from "pino-http";
+
+const isDev = process.env.NODE_ENV !== "production";
+
+const logger = pinoHttp({
+  level: isDev ? "debug" : "info",
+  transport: isDev
+    ? { target: "pino-pretty", options: { colorize: true } }
+    : undefined,
+  redact: ["req.headers.authorization", "req.headers.cookie"],
+  serializers: {
+    req(req) {
+      return {
+        method: req.method,
+        url: req.url,
+        ip: req.socket.remoteAddress,
+      };
+    },
+  },
+});
 
 const app = express();
 
 // Required for express-rate-limit to correctly read the client IP when running
 // behind a reverse proxy (Nginx, Render, Railway, Vercel, etc.).
 app.set("trust proxy", 1);
+app.use(logger);
 
 app.use(
   helmet({

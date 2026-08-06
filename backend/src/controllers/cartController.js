@@ -21,9 +21,6 @@ export const addToCart = async (req, res, next) => {
       throw new ApiError(400, "Quantity must be a positive integer.");
     }
 
-    const color = selectedVariant?.color;
-    const size = selectedVariant?.size;
-
     const product = await Product.findById(productId);
     if (!product || !product.isActive) {
       throw new ApiError(404, "Product not found or unavailable.");
