@@ -1,5 +1,13 @@
+import { products } from "@/data/products";
+import ProductGrid from "@/components/product/ProductGrid";
+
 export default function Products() {
-  return(
-    <h1>Products</h1>
-  )
+  return (
+    <>
+      <main>
+        <h1>All Products</h1>
+        <ProductGrid products={products} />
+      </main>
+    </>
+  );
 }
