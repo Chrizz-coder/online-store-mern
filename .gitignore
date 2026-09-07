@@ -20,6 +20,7 @@ node_modules/
 # Build
 dist/
 build/
+.next/
 
 # OS
 .DS_Store
