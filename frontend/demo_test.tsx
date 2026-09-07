@@ -1,63 +1,92 @@
-import React from 'react';
+import { type Product } from "@/types/products";
 
-export default function ProductCard({ product }) {
+type ProductCardProps = {
+  product: Product;
+};
+
+export default function ProductCard({ product }: ProductCardProps) {
+  const currentPrice = product.salePrice ?? product.basePrice;
+  const hasDiscount =
+    product.salePrice !== undefined &&
+    product.salePrice < product.basePrice;
+
+  const hasStock =
+    product.globalStock > 0 ||
+    product.variants.some((variant) => variant.stock > 0);
+
+  const colors = [
+    ...new Set(
+      product.variants
+        .map((variant) => variant.color)
+        .filter((color): color is string => Boolean(color)),
+    ),
+  ];
+
   return (
-    <div className="group cursor-pointer flex flex-col h-full">
-      {/* 1. IMAGE CONTAINER WITH LIGHT BACKGROUND ASPECT MASK */}
-      <div className="relative aspect-square w-full bg-[#f6f6f6] overflow-hidden rounded-sm">
-        {/* Heart icon positioning anchor */}
-        <button 
-          className="absolute top-3 right-3 p-1.5 bg-white/80 hover:bg-white rounded-full transition-colors shadow-sm"
-          aria-label="Add to Wishlist"
-        >
-          <svg className="w-5 h-5 text-slate-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-          </svg>
-        </button>
-        
-        {/* Product image with subtle micro-zoom transition on card hover */}
-        <img 
-          src={product.imageUrl} 
+    <article className="group">
+      <div className="relative aspect-square overflow-hidden bg-neutral-100">
+        <img
+          src={product.images[0]}
           alt={product.name}
-          className="w-full h-full object-cover mix-blend-multiply group-hover:scale-[1.02] transition-transform duration-300"
+          className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105"
         />
+
+        <button
+          type="button"
+          aria-label={`Add ${product.name} to wishlist`}
+          className="absolute right-3 top-3 flex size-10 items-center justify-center rounded-full bg-white text-xl shadow-sm"
+        >
+          ♡
+        </button>
       </div>
 
-      {/* 2. TEXT DETAILS SUMMARY PANEL */}
-      <div className="mt-3 flex flex-col flex-grow text-left text-[15px] leading-relaxed">
-        {/* Highlight Tag (e.g., "Just In", "Best Seller") */}
-        {product.tag && (
-          <span className="text-[#9e3500] font-medium font-sans text-sm">
-            {product.tag}
-          </span>
+      <div className="space-y-1 pt-4">
+        <p className="text-sm font-medium text-red-600">Just In</p>
+
+        <h2 className="font-medium text-neutral-900">
+          {product.name}
+        </h2>
+
+        <p className="text-sm text-neutral-500">
+          {product.brand} · {product.category}
+        </p>
+
+        {colors.length > 0 && (
+          <div className="flex gap-1 pt-1">
+            {colors.map((color) => (
+              <span
+                key={color}
+                title={color}
+                className="size-3 rounded-full border border-neutral-300"
+              />
+            ))}
+          </div>
         )}
 
-        {/* Core Identity */}
-        <h3 className="font-medium text-slate-900 mt-0.5">{product.name}</h3>
-        
-        {/* Target Demographic/Category */}
-        <p className="text-slate-500 font-normal">{product.subCategory}</p>
+        <div className="flex items-center gap-2 pt-1">
+          <p className="font-medium text-neutral-900">
+            ₹{currentPrice.toLocaleString("en-IN")}
+          </p>
 
-        {/* Color Variations Indicators Grid */}
-        <div className="flex items-center gap-1.5 mt-1.5 mb-2">
-          {product.colors?.map((colorHex, idx) => (
-            <span 
-              key={idx} 
-              className="w-3 h-3 rounded-full border border-black/10 inline-block" 
-              style={{ backgroundColor: colorHex }}
-            />
-          ))}
+          {hasDiscount && (
+            <p className="text-sm text-neutral-400 line-through">
+              ₹{product.basePrice.toLocaleString("en-IN")}
+            </p>
+          )}
         </div>
 
-        {/* Final Price Block pushing to bottom naturally */}
-        <div className="mt-auto font-medium text-slate-900">
-          {new Intl.NumberFormat('en-IN', {
-            style: 'currency',
-            currency: 'INR',
-            maximumFractionDigits: 0
-          }).format(product.price)}
-        </div>
+        {!hasStock && (
+          <p className="text-sm text-red-600">Out of stock</p>
+        )}
+
+        <button
+          type="button"
+          disabled={!hasStock}
+          className="mt-3 w-full bg-black px-4 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-neutral-300"
+        >
+          {hasStock ? "View product" : "Unavailable"}
+        </button>
       </div>
-    </div>
+    </article>
   );
 }
