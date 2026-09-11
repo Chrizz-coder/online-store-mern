@@ -1,6 +1,6 @@
-import { products } from "@/data/products";
-import ProductGrid from "@/components/product/ProductGrid";
 
+import ProductGrid from "@/components/product/ProductGrid";
+import { products } from "@/data/products";
 export default function Products() {
   return (
     <>

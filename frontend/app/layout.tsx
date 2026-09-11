@@ -9,7 +9,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
+      <body className="bg-white text-black min-h-screen antialiased">
         
       <Navbar />
       <main>{children}</main>

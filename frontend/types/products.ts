@@ -13,6 +13,8 @@ export type Product = {
   description:string;
   basePrice:number;
   salePrice?:number;
+  category:string;
+  subCategory:string;
   brand:string;
   tags: string[];
   images:string[];
