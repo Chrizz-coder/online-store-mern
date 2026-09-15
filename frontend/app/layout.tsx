@@ -9,10 +9,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-white text-black min-h-screen antialiased">
+      <body className="bg-white text-black min-h-screen antialiased flex flex-col">
         
       <Navbar />
-      <main>{children}</main>
+      <main className="grow w-full">{children}</main>
       <Footer />
       </body>
 
