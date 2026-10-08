@@ -3,9 +3,10 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-
+import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
+  const { login } = useAuth();
   const router = useRouter();
   const [formData, setFormData] = useState({
     email: "",
@@ -30,22 +31,7 @@ export default function LoginPage() {
     setSuccess("");
 
     try {
-      const response = await fetch(`${backendUrl}/api/user/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Login failed");
-      }
-
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      await login(formData);
 
       setSuccess("Login successful");
       setFormData({ email: "", password: "" });
@@ -62,7 +48,7 @@ export default function LoginPage() {
       setLoading(false);
     }
 
-    console.log("Logging user in via API:", formData);
+    
   };
 
   return (
@@ -122,7 +108,7 @@ export default function LoginPage() {
             className="w-full mt-4 bg-black text-white rounded-sm text-xs font-bold uppercase tracking-normal py-4 active:scale-[0.99]  focus:outline-none transition-colors
             hover:bg-[#222222]"
           >
-            Sign In
+            {loading ? "Signing In" : "Sign In"}
           </button>
         </form>
         <div className="mt-6 text-center text-sm text-[#707072] font-sans">

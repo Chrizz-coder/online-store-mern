@@ -2,8 +2,12 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 
 export default function RegisterPage() {
+  const router = useRouter();
+  const { register } = useAuth();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -26,21 +30,19 @@ export default function RegisterPage() {
       process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
     try {
-      const response = await fetch(`${backendUrl}/api/user/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || "Registration Failed");
-      }
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      await register(formData);
       setSuccess("Account created successfully.");
+      setFormData({
+        name:"",
+        email:"",
+        password:"",
+      })
+
+      router.push("/");
+      
+
+      
     } catch (error) {
       setError(error instanceof Error ? error.message : "Something went Wrong");
     } finally {
@@ -113,10 +115,11 @@ export default function RegisterPage() {
           </p>
           <button
             type="submit"
+            disabled={loading}
             className="w-full mt-4 bg-black text-white rounded-sm text-xs font-bold uppercase tracking-normal py-4 active:scale-[0.99]  focus:outline-none transition-colors
             hover:bg-[#222222]"
           >
-            Join Us
+            {loading ? "Creating Account..." : "Join Us"}
           </button>
         </form>
         <div className="mt-6 text-center text-sm text-[#707072]">
