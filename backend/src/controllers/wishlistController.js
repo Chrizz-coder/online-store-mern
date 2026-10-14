@@ -32,10 +32,7 @@ export const addToWishlist = async (req, res, next) => {
     }
 
     if (!product || !product.isActive) {
-      throw new ApiError(
-        404,
-        "Product not found or currently unavailable.",
-      );
+      throw new ApiError(404, "Product not found or currently unavailable.");
     }
 
     const requestedVariantId = getRequestedVariantId({
@@ -57,7 +54,10 @@ export const addToWishlist = async (req, res, next) => {
       }
       matchedVariant = requestedVariant;
     } else if (!matchedVariant && hasVariantAttributes(selectedVariant)) {
-      matchedVariant = getVariantByAttributes(product.variants, selectedVariant);
+      matchedVariant = getVariantByAttributes(
+        product.variants,
+        selectedVariant,
+      );
       if (!matchedVariant) {
         throw new ApiError(
           400,
@@ -90,7 +90,10 @@ export const addToWishlist = async (req, res, next) => {
       throw new ApiError(409, "Product is already in your wishlist.");
     }
 
-    wishlist.items.push({ product: product._id, selectedVariant: variantToStore });
+    wishlist.items.push({
+      product: product._id,
+      selectedVariant: variantToStore,
+    });
     await wishlist.save();
 
     return res
@@ -162,9 +165,7 @@ export const removeFromWishlist = async (req, res, next) => {
         return false;
       }
 
-      return (
-        item.selectedVariant?.variantId?.toString() !== requestedVariantId
-      );
+      return item.selectedVariant?.variantId?.toString() !== requestedVariantId;
     });
 
     if (wishlist.items.length === originalLength) {

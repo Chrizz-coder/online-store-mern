@@ -64,7 +64,7 @@ app.use(
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
-  env.FRONTEND_URL,
+  env.NEXT_PUBLIC_API_URL,
 ].filter(Boolean);
 
 const corsOptions = {
