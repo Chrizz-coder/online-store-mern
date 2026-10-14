@@ -1,12 +1,13 @@
 
 import ProductGrid from "@/components/product/ProductGrid";
-import { products } from "@/data/products";
-export default function Products() {
+import { getProducts } from "@/services/product";
+export default async function Products() {
+  const data = await getProducts();
   return (
     <>
       <main>
         <h1>All Products</h1>
-        <ProductGrid products={products} />
+        <ProductGrid products={data.products} />
       </main>
     </>
   );

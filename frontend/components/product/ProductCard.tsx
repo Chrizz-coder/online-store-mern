@@ -8,7 +8,6 @@ import {
   removeFromWishlist,
   getWishlist,
 } from "@/services/wishlist";
-import items from "razorpay/dist/types/items";
 
 type ProductCardProps = {
   product: Product;
@@ -33,6 +32,9 @@ export default function ProductCard({ product }: ProductCardProps) {
       router.push("/login");
       return;
     }
+
+    setIsWishlistLoading(true);
+    setWishlistError("");
 
     try {
       if (isWishListed) {
@@ -87,7 +89,10 @@ export default function ProductCard({ product }: ProductCardProps) {
   if (isAuthLoading) {
     return null;
   }
+  console.log("Product:", product);
+  console.log("Product ID:", product._id);
   return (
+    
     <article className="group flex flex-col w-full h-full bg-white  select-none text-left">
       <div className="relative overflow-hidden aspect-square w-full bg-[#f6f6f6] rounded-sm">
         <img
@@ -143,6 +148,9 @@ export default function ProductCard({ product }: ProductCardProps) {
           </p>
         )}
       </div>
+      {wishlistError && (
+        <p className="mt-2 text-xs text-red-600">{wishlistError}</p>
+      )}
     </article>
   );
 }

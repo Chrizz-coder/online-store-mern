@@ -25,7 +25,7 @@ export type Product = {
   createdAt:string;
   updatedAt:string;
 }
-type ProductsResponse = {
+export type ProductsResponse = {
   count:number;
   total:number;
   page:number;
